@@ -1,9 +1,25 @@
+#####################################################################
+# CSCB58 Summer 2025 Assembly Final Project - UTSC
+# Name, Student Number, UTorID, official email
+# Bitmap Display Configuration:
+# - Unit width in pixels: 8 (update this as needed) 
+# - Unit height in pixels: 8 (update this as needed)
+# - Display width in pixels: 256 (update this as needed)
+# - Display height in pixels: 256 (update this as needed)
+# - Base Address for Display: 0x10008000 ($gp)
+# 
+# Currently has rotation, movement, collision detection, and central loop and piece locking.
+# More info will be written in final submission
+#
+# Any additional information that the TA needs to know:
+# - (write here, if any)
+#
+#####################################################################
 .data
 ADDR_DSPL: .word 0x10008000  # base address for framebuffer
 Board: .space 2048   # 32 rows * 16 columns * 4 bytes = 2048 bytes
 ADDR_KBRD: .word 0xffff0000
-
-
+seed: .word 93210831 # determines random seed
 
 active_piece: .word 0
 active_row: .word 0
@@ -12,25 +28,42 @@ active_color: .word 0
 active_orientation: .word 0
 active_rotation_block: .word 0
 
+# parallel list of pieces and colours
+AllPieces: .word I_piece_rotations, L_piece_rotations, T_piece_rotations, O_piece_rotations, S_piece_rotations, Z_piece_rotations, J_piece_rotations
+PieceColors: .word 0x9999ff, 0xe27102, 0xae2fcb, 0xebf01d, 0x50d3ac, 0xaa2822, 0x33a6eb
+
+# piece info
+I_piece_rotations: .word I_piece, I_piece_90, I_piece_180, I_piece_270
 L_piece_rotations: .word L_piece, L_piece_90, L_piece_180, L_piece_270
+T_piece_rotations: .word T_piece, T_piece_90, T_piece_180, T_piece_270
+O_piece_rotations: .word O_piece, O_piece_90, O_piece_180, O_piece_270
+S_piece_rotations: .word S_piece, S_piece_90, S_piece_180, S_piece_270
+Z_piece_rotations: .word Z_piece, Z_piece_90, Z_piece_180, Z_piece_270
+J_piece_rotations: .word J_piece, J_piece_90, J_piece_180, J_piece_270
 
 I_piece:
     .byte 0,0,0,0
     .byte 1,1,1,1
     .byte 0,0,0,0
     .byte 0,0,0,0
+    
+I_piece_90:
+    .byte 0,1,0,0
+    .byte 0,1,0,0
+    .byte 0,1,0,0
+    .byte 0,1,0,0
 
-Z_piece:
+I_piece_180:
+    .byte 0,0,0,0
     .byte 0,0,0,0
     .byte 1,1,1,1
-    .byte 0,1,1,0
-    .byte 0,1,1,0
+    .byte 0,0,0,0
 
-S_piece:
-    .byte 1,0,1,1
-    .byte 1,1,1,1
-    .byte 0,1,1,0
-    .byte 0,1,1,0
+I_piece_270:
+    .byte 0,0,1,0
+    .byte 0,0,1,0
+    .byte 0,0,1,0
+    .byte 0,0,1,0
 
 L_piece:
     .byte 0,0,0,0
@@ -56,109 +89,242 @@ L_piece_270:
     .byte 0,0,0,0
     .byte 0,0,0,0
 
+J_piece:
+    .byte 0,0,0,0
+    .byte 0,0,1,0
+    .byte 1,1,1,0
+    .byte 0,0,0,0
+
+J_piece_90:
+    .byte 1,0,0,0
+    .byte 1,0,0,0
+    .byte 1,1,0,0
+    .byte 0,0,0,0
+
+J_piece_180:
+    .byte 0,0,0,0
+    .byte 1,1,1,0
+    .byte 1,0,0,0
+    .byte 0,0,0,0
+
+J_piece_270:
+    .byte 1,1,0,0
+    .byte 0,1,0,0
+    .byte 0,1,0,0
+    .byte 0,0,0,0
+
+T_piece:
+    .byte 0,0,0,0
+    .byte 1,1,1,0
+    .byte 0,1,0,0
+    .byte 0,0,0,0
+
+T_piece_90:
+    .byte 0,1,0,0
+    .byte 1,1,0,0
+    .byte 0,1,0,0
+    .byte 0,0,0,0
+
+T_piece_180:
+    .byte 0,1,0,0
+    .byte 1,1,1,0
+    .byte 0,0,0,0
+    .byte 0,0,0,0
+
+T_piece_270:
+    .byte 0,1,0,0
+    .byte 0,1,1,0
+    .byte 0,1,0,0
+    .byte 0,0,0,0
+
+S_piece:
+    .byte 0,0,0,0
+    .byte 0,1,1,0
+    .byte 1,1,0,0
+    .byte 0,0,0,0
+
+S_piece_90:
+    .byte 1,0,0,0
+    .byte 1,1,0,0
+    .byte 0,1,0,0
+    .byte 0,0,0,0
+
+S_piece_180:
+    .byte 0,0,0,0
+    .byte 0,1,1,0
+    .byte 1,1,0,0
+    .byte 0,0,0,0
+
+S_piece_270:
+    .byte 1,0,0,0
+    .byte 1,1,0,0
+    .byte 0,1,0,0
+    .byte 0,0,0,0
+
+Z_piece:
+    .byte 0,0,0,0
+    .byte 1,1,0,0
+    .byte 0,1,1,0
+    .byte 0,0,0,0
+
+Z_piece_90:
+    .byte 0,1,0,0
+    .byte 1,1,0,0
+    .byte 1,0,0,0
+    .byte 0,0,0,0
+
+Z_piece_180:
+    .byte 0,0,0,0
+    .byte 1,1,0,0
+    .byte 0,1,1,0
+    .byte 0,0,0,0
+
+Z_piece_270:
+    .byte 0,1,0,0
+    .byte 1,1,0,0
+    .byte 1,0,0,0
+    .byte 0,0,0,0
+
+O_piece:
+    .byte 0,1,1,0
+    .byte 0,1,1,0
+    .byte 0,0,0,0
+    .byte 0,0,0,0
+
+O_piece_90:
+    .byte 0,1,1,0
+    .byte 0,1,1,0
+    .byte 0,0,0,0
+    .byte 0,0,0,0
+
+O_piece_180:
+    .byte 0,1,1,0
+    .byte 0,1,1,0
+    .byte 0,0,0,0
+    .byte 0,0,0,0
+
+O_piece_270:
+    .byte 0,1,1,0
+    .byte 0,1,1,0
+    .byte 0,0,0,0
+    .byte 0,0,0,0
+
 .text
 .globl main
 main:
-    la   $s7, ADDR_KBRD
-    lw   $s7, 0($s7)       # now $s7 = 0xffff0000
+    la $s7, ADDR_KBRD
+    lw $s7, 0($s7)       # now $s7 = 0xffff0000
 
     # setup and draw static UI
     jal init_game
 
     # re-load keyboard addr just in case
-    la   $s7, ADDR_KBRD
-    lw   $s7, 0($s7)
-    
+    la $s7, ADDR_KBRD
+    lw $s7, 0($s7)
+
+    # idk this apparently does RNG nonsense
+    li $a0, 0      # generator ID
+    lw $a1, seed  # seed
+    li $v0, 40     # syscall 40
+    syscall
+
     sw $zero, active_orientation # init to 0
 
     # random nonsense
-    la $t0, L_piece_rotations
+    la $t0, I_piece_rotations
     sw $t0, active_rotation_block  # store pointer to it
 
-    # Set active piece to L_piece (using pointer nonsense)
-    lw  $t1, 0($t0) # this is orientation 0 of L piece
-    sw  $t1, active_piece
-    
-    li  $t1, 2      # row = 0
-    sw  $t1, active_row
+    # set active piece to L_piece (using pointer nonsense)
+    lw $t1, 0($t0) # this is orientation 0 of I piece
+    sw $t1, active_piece
 
-    li  $t1, 8      # col = center
-    sw  $t1, active_col
+    # set active row, column and color
+    li $t1, 2 # row = 0
+    sw $t1, active_row
+    li $t1, 8 # col = center
+    sw $t1, active_col
 
     li $t1, 0x9999ff
-    sw  $t1, active_color
+    sw $t1, active_color
 
 
 game_loop:
     # 1a. check if key has been pressed
-    lw   $t0, 0($s7)           # key status
+    lw $t0, 0($s7)           # key status
     beqz $t0, skip_key
 
-    # 1b. Read the key
-    lw   $t1, 4($s7)           # $t1 = ASCII keycode
+    # 1b. read the key and check keypress
+    lw $t1, 4($s7) # $t1 = ASCII keycode
 
     # 'w' = move left
-    li   $t2, 119               # ASCII 'w'
-    beq  $t1, $t2, try_rotate
+    li $t2, 119
+    beq $t1, $t2, try_rotate
     
     # 'a' = move left
-    li   $t2, 97               # ASCII 'a'
-    beq  $t1, $t2, move_left
+    li $t2, 97
+    beq $t1, $t2, move_left
 
     # 'd' = move right
-    li   $t2, 100              # ASCII 'd'
-    beq  $t1, $t2, move_right
+    li $t2, 100
+    beq $t1, $t2, move_right
 
     # 's' = move down
-    li   $t2, 115              # ASCII 's'
-    beq  $t1, $t2, move_down
+    li $t2, 115
+    beq $t1, $t2, move_down
+
+    # 'q' = quit
+    li $t2, 113
+    beq $t1, $t2, quit
 
 skip_key:
-    # 3. Draw the screen or update gameplay
+    # 3. draw the screen or update gameplay
     jal start_drawing
 
     j game_loop
 
+quit:
+    li $v0, 10 # syscall to exit
+    syscall
+    
 try_rotate:
-    lw   $t0, active_orientation        # current orientation
+    lw $t0, active_orientation        # current orientation
     addi $t1, $t0, 1
     andi $t1, $t1, 3                   # next orientation mod 4
     move $s3, $t1 # save for now
     
-    lw   $t2, active_rotation_block    # pointer to rotation block array
+    lw $t2, active_rotation_block    # pointer to rotation block array
 
-    sll  $t3, $t1, 2                  # offset = next_orientation * 4 bytes
+    sll $t3, $t1, 2                  # offset = next_orientation * 4 bytes
     addu $t3, $t3, $t2                # pointer to rotated piece pointer
 
-    lw   $t4, 0($t3)                  # rotated piece pointer
+    lw $t4, 0($t3)                  # rotated piece pointer
     move $s4, $t4 # save for now
 
-    lw   $a1, active_row
-    lw   $a2, active_col
+    lw $a1, active_row
+    lw $a2, active_col
     move $a0, $t4                     # rotated piece ptr
 
-    jal  can_place_piece
+    jal can_place_piece
     beqz $v0, rotate_fail             # fail if can't place
 
-    # Save old active_piece ptr before updating
-    lw   $t5, active_piece
+    # save old active_piece pointer before updating
+    lw $t5, active_piece
 
-    # Clear old piece
+    # clear old piece
     move $a0, $t5
-    lw   $a1, active_row
-    lw   $a2, active_col
-    jal  clear_piece
+    lw $a1, active_row
+    lw $a2, active_col
+    jal clear_piece
 
-    # Update rotation state
-    sw   $s3, active_orientation
-    sw   $s4, active_piece
+    # update rotation state
+    sw $s3, active_orientation
+    sw $s4, active_piece
 
-    j    game_loop
+    # j game_loop
 
 rotate_fail:
     j    game_loop
 
-    
 
 move_left:
     # clear current position
@@ -167,8 +333,8 @@ move_left:
     lw $a2, active_col
     jal clear_piece
     
-    li $a0, 0        # row delta
-    li $a1, -1       # col delta
+    li $a0, 0 # row delta
+    li $a1, -1 # col delta
     jal can_move
     beqz $v0, game_loop
 
@@ -184,20 +350,20 @@ move_right:
     lw $a2, active_col
     jal clear_piece
     
-    li $a0, 0        # row delta
-    li $a1, 1        # col delta
+    li $a0, 0 # row delta
+    li $a1, 1 # col delta
     jal can_move
     beqz $v0, game_loop
 
     lw  $t0, active_col
     addi $t0, $t0, 1
-    sw  $t0, active_col
-    j   game_loop
+    sw $t0, active_col
+    j game_loop
 
 
 move_down:
-    li $a0, 1        # row delta
-    li $a1, 0        # col delta
+    li $a0, 1 # row delta
+    li $a1, 0 # col delta
     jal can_move
     beqz $v0, move_down_lock
     
@@ -206,33 +372,56 @@ move_down:
     lw $a2, active_col
     jal clear_piece
     
-    lw  $t0, active_row
+    lw $t0, active_row
     addi $t0, $t0, 1
-    sw  $t0, active_row
-    j   game_loop
+    sw $t0, active_row
+    j game_loop
 
 move_down_lock:
-    lw   $a0, active_piece
-    lw   $a2, active_row
-    lw   $a3, active_col
-    jal  lock_piece
+    lw $a0, active_piece
+    lw $a2, active_row
+    lw $a3, active_col
+    jal lock_piece
 
-
-    # spawn more pieces next
+    # keep creating pieces next
 
 spawn_piece:
     sw $zero, active_orientation # set each to 0
 
-    la $t7, L_piece_rotations
-    sw $t7, active_rotation_block  # store pointer to it
+    # get random number
+    li $a0, 0 # generator ID (MUST BE SET)
+    li $a1, 7 # NUMBER OF PIECES
+    li $v0, 42
+    syscall # result is in $a0
 
-    lw  $t0, 0($t7) # for now - L piece's first
-    sw  $t0, active_piece
+    sll $t7, $a0, 2 # offset = (random_index) * 4 (use this for piece + colour)
+
+    la $t8, PieceColors # base address of PieceColors
+    add $t9, $t8, $t7 # t9 = address of PieceColors[index]
+    lw $t0, 0($t9) # t0 = colour of piece
+    sw $t0, active_color # make colour active
+
+    la $t6, AllPieces # base address of array
+    add $t6, $t6, $t7 # pointer to AllPieces[index]
+    lw $t7, 0($t6) # load the rotation block pointer
+    sw $t7, active_rotation_block # active_rotation_block = t7*
     
-    li  $t1, 2
-    sw  $t1, active_row
-    li  $t2, 8
-    sw  $t2, active_col
+    lw $t0, 0($t7) # rotation 0 of the current piece
+    sw $t0, active_piece
+    
+    li $t1, 2
+    sw $t1, active_row
+    li $t2, 8
+    sw $t2, active_col
+
+    lw $a0 active_piece
+    lw $a1 active_row
+    lw $a2 active_col
+
+
+    jal can_place_piece # check if the game is over (v0 = 0)
+    beq $zero, $v0 quit
+    
     j game_loop
 
 ##############################################################################
@@ -243,8 +432,8 @@ init_game:
     li $s5, 0xa20aaa
     li $s4, 0x262626
 
-    li $t2, 0                # row index
-    li $t3, 32               # total rows (64 * 4 = 256 pixels)
+    li $t2, 0           # row index
+    li $t3, 32          # total rows (64 * 4 = 256 pixels)
 
     # PLAY AREA IS FROM COL 2 to 17 (16 blocks wide)
 
@@ -332,21 +521,21 @@ next_row:
 
 ##############################################################################
 start_drawing: # this is basically a do while loop
-    addiu $sp, $sp, -4 # push
-    sw    $ra, 0($sp)
+    addi $sp, $sp, -4 # push
+    sw $ra, 0($sp)
         
     # load active piece and draw it
-    lw  $a0, active_piece
+    lw $a0, active_piece
     lw $a1, active_color
-    lw  $a2, active_row
-    lw  $a3, active_col
+    lw $a2, active_row
+    lw $a3, active_col
     jal draw_piece
 
 
     # pop and go back
-    lw    $ra, 0($sp)
-    addiu $sp, $sp, 4
-    jr    $ra
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
 
 
 ##############################################################################
@@ -359,37 +548,37 @@ draw_piece:
     move $t2, $a2        # row pos
     move $t3, $a3        # col pos
 
-    li   $t4, 0          # piece row index (0..3)
+    li $t4, 0          # piece row index (0..3)
 draw_row_loop:
-    li   $t5, 0          # piece col index (0..3)
+    li $t5, 0          # piece col index (0..3)
 draw_col_loop:
-    mul  $t6, $t4, 4
-    add  $t6, $t6, $t5      # piece offset
-    add  $t7, $t0, $t6
-    lb   $t8, 0($t7)        # piece[i,j]
+    mul $t6, $t4, 4
+    add $t6, $t6, $t5      # piece offset
+    add $t7, $t0, $t6
+    lb $t8, 0($t7)        # piece[i,j]
 
-    beq  $t8, $zero, skip_pixel
+    beq $t8, $zero, skip_pixel
 
-    add  $t9, $t2, $t4      # screen row
-    add  $s0, $t3, $t5      # screen col (using $s0 temporarily)
+    add $t9, $t2, $t4      # screen row
+    add $s0, $t3, $t5        # screen col (using $s0 temporarily)
 
-    mul  $t9, $t9, 128      # row offset in bytes
-    mul  $s0, $s0, 4        # col offset in bytes
+    mul $t9, $t9, 128       # row offset in bytes
+    mul $s0, $s0, 4         # col offset in bytes
 
-    lw   $s1, ADDR_DSPL     # framebuffer base
+    lw $s1, ADDR_DSPL     # framebuffer base
     addu $t9, $s1, $t9
     addu $t9, $t9, $s0
 
-    sw   $t1, 0($t9)        # write pixel color
+    sw $t1, 0($t9)        # write pixel color
 
 skip_pixel:
     addi $t5, $t5, 1
-    li   $t6, 4
-    blt  $t5, $t6, draw_col_loop
+    li $t6, 4
+    blt $t5, $t6, draw_col_loop
 
     addi $t4, $t4, 1
-    li   $t6, 4
-    blt  $t4, $t6, draw_row_loop
+    li $t6, 4
+    blt $t4, $t6, draw_row_loop
 
     jr $ra
 
@@ -398,34 +587,35 @@ clear_piece:
     move $t2, $a1        # row pos
     move $t3, $a2        # col pos
 
-    li   $t4, 0          # piece row index (0..3)
+    li $t4, 0          # piece row index (0..3)
 cp_row_loop:
-    li   $t5, 0          # piece col index (0..3)
+    li $t5, 0          # piece col index (0..3)
 cp_col_loop:
-    mul  $t6, $t4, 4
-    add  $t6, $t6, $t5      # piece offset
-    add  $t7, $t0, $t6
-    lb   $t8, 0($t7)        # piece[i,j]
+    mul $t6, $t4, 4
+    add $t6, $t6, $t5      # piece offset
+    add $t7, $t0, $t6
+    lb $t8, 0($t7)        # piece[i,j]
 
-    beq  $t8, $zero, cp_skip_pixel
+    beq $t8, $zero, cp_skip_pixel
 
-    add  $t9, $t2, $t4      # screen row
-    add  $s0, $t3, $t5      # screen col (using $s0 temporarily)
+    add $t9, $t2, $t4      # screen row
+    add $s0, $t3, $t5      # screen col (using $s0 temporarily)
 
-    mul  $t9, $t9, 128      # row offset in bytes
-    mul  $s0, $s0, 4        # col offset in bytes
+    mul $t9, $t9, 128      # row offset in bytes
+    mul $s0, $s0, 4        # col offset in bytes
 
-    lw   $s1, ADDR_DSPL     # framebuffer base
+    lw $s1, ADDR_DSPL     # framebuffer base
     addu $t9, $s1, $t9
     addu $t9, $t9, $s0
 
     # done with t6, t7, t8
-    # Calculate checkerboard pattern:
+    # calculate checkerboard pattern:
     add $t6, $t2, $t4    # abs_row
     add $t7, $t3, $t5    # abs_col
     add $t8, $t6, $t7
     andi $t8, $t8, 1
-    beqz $t8, cp_gray
+    beqz $t8, cp_gray # if t8 == 1, do black
+    
     sw $zero, 0($t9)     # black
     j cp_skip_pixel
 
@@ -435,111 +625,112 @@ cp_gray:
 
 cp_skip_pixel:
     addi $t5, $t5, 1
-    blt  $t5, 4, cp_col_loop
+    blt $t5, 4, cp_col_loop
 
     addi $t4, $t4, 1
-    blt  $t4, 4, cp_row_loop
+    blt $t4, 4, cp_row_loop
 
     jr $ra
 
 ##############################################################################
-# fxn lock_piece(a0, a2, a3): commits a piece to board
+# fxn lock_piece(a0, a2, a3): commits a piece to board (no return)
 # a2, a3 are row/col, a0 is piece
 lock_piece:
-    li   $t0, 0              # piece row index (0..3)
+    li $t0, 0              # piece row index (0..3)
 lp_row_loop:
-    li   $t1, 0              # piece col index (0..3)
+    li $t1, 0              # piece col index (0..3)
 lp_col_loop:
-    mul  $t2, $t0, 4
-    add  $t2, $t2, $t1       # offset in piece
-    add  $t3, $a0, $t2
-    lb   $t4, 0($t3)         # get value of piece[i][j]
+    mul $t2, $t0, 4
+    add $t2, $t2, $t1       # offset in piece
+    add $t3, $a0, $t2
+    lb $t4, 0($t3)         # get value of piece[i][j]
 
-    beq  $t4, $zero, lp_skip # skip if empty block
+    beq $t4, $zero, lp_skip # skip if empty block
 
-    add  $t5, $a2, $t0       # board row
-    add  $t6, $a3, $t1       # board col
+    add $t5, $a2, $t0       # board row
+    add $t6, $a3, $t1        # board col
 
-    li   $t7, 16
-    mul  $t8, $t5, $t7
-    add  $t8, $t8, $t6
-    sll  $t8, $t8, 2         # multiply by 4
+    li $t7, 16
+    mul $t8, $t5, $t7
+    add $t8, $t8, $t6
+    sll $t8, $t8, 2         # multiply by 4
 
-    la   $t9, Board
-    add  $t9, $t9, $t8
-    li   $s0, 1
-    sw   $s0, 0($t9) # save to the board, but we should store colours not piece values
+    la  $t9, Board
+    add $t9, $t9, $t8
+    li $s0, 1
+    sw $s0, 0($t9) # save to the board, but we should store colours not piece values
     # now we store colour
 
 lp_skip:
     addi $t1, $t1, 1
-    li   $t2, 4
-    blt  $t1, $t2, lp_col_loop
+    li $t2, 4
+    blt $t1, $t2, lp_col_loop
 
     addi $t0, $t0, 1
-    li   $t2, 4
-    blt  $t0, $t2, lp_row_loop
+    li $t2, 4
+    blt $t0, $t2, lp_row_loop
 
     jr $ra
 
 ##############################################################################
 # fxn can_move_down(): returns boolean in v0
-# uses stack # can_move: returns 1 in $v0 if move by (d_row=$a0, d_col=$a1) is legal
+# uses stack: returns 1 in $v0 if move by (d_row=a0, d_col=$a1) is legal
 can_move:
-    addiu $sp, $sp, -8
-    sw    $ra, 0($sp)
-    sw    $s0, 4($sp)
+    addi $sp, $sp, -4 # push ra
+    sw $ra, 0($sp)     # push ra
 
-    lw    $s0, active_piece     # $s0 = pointer to piece
-    lw    $t0, active_row       # $t0 = active row
-    lw    $t1, active_col       # $t1 = active col
 
-    move  $t2, $a0              # $t2 = d_row
-    move  $t3, $a1              # $t3 = d_col
+    lw $s0, active_piece     # $s0 = pointer to piece
+    lw $t0, active_row       # $t0 = active row
+    lw $t1, active_col       # $t1 = active col
 
-    li    $t4, 0                # i = 0
+    # t2, t3 = deltas (change in row/col)
+    move $t2, $a0
+    move $t3, $a1
+
+    li $t4, 0                # i = 0
 row_loop:
-    li    $t5, 0                # j = 0
+    li $t5, 0                # j = 0
 col_loop:
-    mul   $t6, $t4, 4
-    add   $t6, $t6, $t5         # offset = i*4 + j
-    add   $t7, $s0, $t6
-    lb    $t8, 0($t7)           # piece[i][j]
+    sll $t6, $t4, 2 # t6 = t4 * 4
+    add $t6, $t6, $t5         # offset in 4x4 grid = i*4 + j
+    add $t7, $s0, $t6
+    lb $t8, 0($t7)           # piece[i][j]
 
-    beqz  $t8, skip_cell
+    beqz $t8, skip_cell
 
     # abs_row = active_row + i + d_row
-    add   $t9, $t0, $t4
-    add   $t9, $t9, $t2
+    add $t9, $t0, $t4
+    add $t9, $t9, $t2
 
     # abs_col = active_col + j + d_col
-    add   $t6, $t1, $t5
-    add   $t6, $t6, $t3
+    add $t6, $t1, $t5
+    add $t6, $t6, $t3
 
  
     # check row > 1 and < 32
-    li   $t7, 1
-    ble  $t9, $t7, fail_move
-    li   $t7, 30
-    bge  $t9, $t7, fail_move
+    li $t7, 1
+    ble $t9, $t7, fail_move
+    li $t7, 30
+    bge $t9, $t7, fail_move
     
     # check col > 1 and < 14
-    li   $t7, 1
-    ble  $t6, $t7, fail_move
-    li   $t7, 18
-    bge  $t6, $t7, fail_move
+    li $t7, 1
+    ble $t6, $t7, fail_move
+    li $t7, 18
+    bge $t6, $t7, fail_move
 
 
     # check collision in Board[abs_row][abs_col]
-    li    $t7, 16
-    mul   $t7, $t9, $t7         # t7 = abs_row * 16
-    add   $t7, $t7, $t6         # + abs_col
-    sll   $t7, $t7, 2           # * 4 (word address)
+    li $t7, 16
+    mul $t7, $t9, $t7         # t7 = abs_row * 16
+    add $t7, $t7, $t6         # + abs_col
+    sll $t7, $t7, 2           # * 4 (word address)
 
-    la    $t8, Board
-    add   $t8, $t8, $t7
-    lw    $t9, 0($t8)
-    bnez  $t9, fail_move # if board[i][j] == 1, its alr occupied
+    la $t8, Board
+    add $t8, $t8, $t7
+    lw $t9, 0($t8)
+    bnez $t9, fail_move # if board[i][j] == 1, its alr occupied
 
 skip_cell:
     addi  $t5, $t5, 1
@@ -555,78 +746,76 @@ fail_move:
     li    $v0, 0
 
 done_move:
-    lw    $ra, 0($sp)
-    lw    $s0, 4($sp)
-    addiu $sp, $sp, 8
+    lw    $ra, 0($sp) # pop ra
+    addi $sp, $sp, 4
     jr    $ra
 
 ##############################################################################
 # fxn can_rotate(): returns boolean in v0
-# uses stack # can_move: returns 1 in $v0 if (active_row, active_col is valid for given piece) is legal
-# should refactor but whatever
+# uses stack: returns 1 in $v0 if a piece at (active_row, active_col)is legal
+# should refactor but to can_move, but whatever
 can_place_piece:
-    addiu $sp, $sp, -8
-    sw    $ra, 0($sp)
-    sw    $s0, 4($sp)
+    addi $sp, $sp, -4 # push ra
+    sw $ra, 0($sp)
 
-    move  $s0, $a0          # piece pointer
-    move  $t0, $a1          # target row
-    move  $t1, $a2          # target col
+    move $s0, $a0          # piece pointer
+    move $t0, $a1          # target row
+    move $t1, $a2          # target col
 
-    li    $t2, 0            # piece row index i = 0
+    li $t2, 0    # piece row index i = 0
+
 row_loop_cp:
-    li    $t3, 0            # piece col index j = 0
+    li $t3, 0            # piece col index j = 0
 col_loop_cp:
-    mul   $t4, $t2, 4
-    add   $t4, $t4, $t3     # offset i*4 + j
-    add   $t5, $s0, $t4
-    lb    $t6, 0($t5)       # piece[i][j]
+    mul $t4, $t2, 4
+    add $t4, $t4, $t3     # offset i*4 + j
+    add $t5, $s0, $t4
+    lb $t6, 0($t5)       # piece[i][j]
 
-    beqz  $t6, skip_cell_cp
+    beqz $t6, skip_cell_cp
 
     # abs_row = target_row + i
-    add   $t7, $t0, $t2
+    add $t7, $t0, $t2
     # abs_col = target_col + j
-    add   $t8, $t1, $t3
+    add $t8, $t1, $t3
 
-    # Bounds check rows >1 and <30
-    li    $t9, 1
-    ble   $t7, $t9, fail_cp
-    li    $t9, 30
-    bge   $t7, $t9, fail_cp
+    # check rows > 1 and < 30
+    li $t9, 1
+    ble $t7, $t9, fail_cp
+    li $t9, 30
+    bge $t7, $t9, fail_cp
 
-    # Bounds check cols >1 and <18
-    li    $t9, 1
-    ble   $t8, $t9, fail_cp
-    li    $t9, 18
-    bge   $t8, $t9, fail_cp
+    # check cols > 1 and < 18
+    li $t9, 1
+    ble $t8, $t9, fail_cp
+    li $t9, 18
+    bge $t8, $t9, fail_cp
 
-    # Check collision on Board
-    li    $t9, 16
-    mul   $t9, $t7, $t9      # row * 16
-    add   $t9, $t9, $t8      # + col
-    sll   $t9, $t9, 2        # *4 bytes
+    # check collision on Board
+    li $t9, 16
+    mul $t9, $t7, $t9      # row * 16
+    add $t9, $t9, $t8      # + col
+    sll $t9, $t9, 2        # * 4 bytes
 
-    la    $t6, Board
-    addu  $t6, $t6, $t9
-    lw    $t7, 0($t6)
-    bnez  $t7, fail_cp
+    la $t6, Board
+    addu $t6, $t6, $t9
+    lw $t7, 0($t6)
+    bnez $t7, fail_cp
 
 skip_cell_cp:
-    addi  $t3, $t3, 1
-    blt   $t3, 4, col_loop_cp
+    addi $t3, $t3, 1
+    blt $t3, 4, col_loop_cp
 
-    addi  $t2, $t2, 1
-    blt   $t2, 4, row_loop_cp
+    addi $t2, $t2, 1
+    blt $t2, 4, row_loop_cp
 
-    li    $v0, 1             # fits
-    j     done_cp
+    li $v0, 1 # return 1 if fits
+    j done_cp
 
 fail_cp:
-    li    $v0, 0             # does not fit
+    li $v0, 0 # return 0 if it doesn't fit
 
 done_cp:
-    lw    $ra, 0($sp)
-    lw    $s0, 4($sp)
-    addiu $sp, $sp, 8
-    jr    $ra
+    lw $ra, 0($sp) # pop ra
+    addi $sp, $sp, 4
+    jr $ra
