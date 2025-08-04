@@ -17,9 +17,9 @@
 #####################################################################
 .data
 ADDR_DSPL: .word 0x10008000  # base address for framebuffer
-Board: .space 2048   # 32 rows * 16 columns * 4 bytes = 2048 bytes
+Board: .space 1792   # 28 rows * 16 columns * 4 bytes = 2048 bytes
 ADDR_KBRD: .word 0xffff0000
-seed: .word 93210831 # determines random seed
+seed: .word 76575 # determines random seed
 
 active_piece: .word 0
 active_row: .word 0
@@ -91,24 +91,24 @@ L_piece_270:
 
 J_piece:
     .byte 0,0,0,0
-    .byte 0,0,1,0
     .byte 1,1,1,0
+    .byte 0,0,1,0
     .byte 0,0,0,0
 
 J_piece_90:
-    .byte 1,0,0,0
-    .byte 1,0,0,0
+    .byte 0,1,0,0
+    .byte 0,1,0,0
     .byte 1,1,0,0
     .byte 0,0,0,0
 
 J_piece_180:
     .byte 0,0,0,0
-    .byte 1,1,1,0
     .byte 1,0,0,0
+    .byte 1,1,1,0
     .byte 0,0,0,0
 
 J_piece_270:
-    .byte 1,1,0,0
+    .byte 0,1,1,0
     .byte 0,1,0,0
     .byte 0,1,0,0
     .byte 0,0,0,0
@@ -208,6 +208,8 @@ O_piece_270:
     .byte 0,1,1,0
     .byte 0,0,0,0
     .byte 0,0,0,0
+
+gray_color: .word 0x262626
 
 .text
 .globl main
@@ -383,6 +385,17 @@ move_down_lock:
     lw $a3, active_col
     jal lock_piece
 
+    # jal print_board
+
+    jal clear_lines
+
+    beqz $v0, spawn_piece # no clearing happened
+    # else redraw board
+    jal init_game # this will clear the board (not ideal b/c it redraws red, but wtv)
+    # now we redraw the board
+    # jal print_board
+    jal redraw_board
+
     # keep creating pieces next
 
 spawn_piece:
@@ -393,6 +406,7 @@ spawn_piece:
     li $a1, 7 # NUMBER OF PIECES
     li $v0, 42
     syscall # result is in $a0
+    # li $a0, 0       # force index to 0 (I piece) - temp
 
     sll $t7, $a0, 2 # offset = (random_index) * 4 (use this for piece + colour)
 
@@ -430,7 +444,7 @@ init_game:
     lw $t0, ADDR_DSPL        # $t0 = base framebuffer address
     li $t1, 0xa40c50         # red color
     li $s5, 0xa20aaa
-    li $s4, 0x262626
+    li $s4, 0x262626 # gray for checkboard
 
     li $t2, 0           # row index
     li $t3, 32          # total rows (64 * 4 = 256 pixels)
@@ -483,7 +497,7 @@ clear_loop:
     j continue_clear
 
 store_black:
-    sw  $s0, 0($t4)         # store black
+    sw  $zero, 0($t4)         # store black
     j   continue_clear
 
 continue_clear:
@@ -633,9 +647,12 @@ cp_skip_pixel:
     jr $ra
 
 ##############################################################################
-# fxn lock_piece(a0, a2, a3): commits a piece to board (no return)
+# fxn lock_piece(a0, a2, a3): commits a piece to board (no return), assumes board has only playable area
 # a2, a3 are row/col, a0 is piece
 lock_piece:
+    subi $a2, $a2, 2 #checktest
+    subi $a3, $a3, 2
+    
     li $t0, 0              # piece row index (0..3)
 lp_row_loop:
     li $t1, 0              # piece col index (0..3)
@@ -645,7 +662,7 @@ lp_col_loop:
     add $t3, $a0, $t2
     lb $t4, 0($t3)         # get value of piece[i][j]
 
-    beq $t4, $zero, lp_skip # skip if empty block
+    beq $t4, $zero, lp_skip # skip if empty block, change later
 
     add $t5, $a2, $t0       # board row
     add $t6, $a3, $t1        # board col
@@ -657,7 +674,7 @@ lp_col_loop:
 
     la  $t9, Board
     add $t9, $t9, $t8
-    li $s0, 1
+    lw $s0, active_color #trackme
     sw $s0, 0($t9) # save to the board, but we should store colours not piece values
     # now we store colour
 
@@ -720,7 +737,9 @@ col_loop:
     li $t7, 18
     bge $t6, $t7, fail_move
 
-
+    subi $t6, $t6, 2
+    subi $t9, $t9, 2
+    
     # check collision in Board[abs_row][abs_col]
     li $t7, 16
     mul $t7, $t9, $t7         # t7 = abs_row * 16
@@ -791,6 +810,9 @@ col_loop_cp:
     li $t9, 18
     bge $t8, $t9, fail_cp
 
+    subi $t7, $t7, 2
+    subi $t8, $t8, 2
+    
     # check collision on Board
     li $t9, 16
     mul $t9, $t7, $t9      # row * 16
@@ -819,3 +841,158 @@ done_cp:
     lw $ra, 0($sp) # pop ra
     addi $sp, $sp, 4
     jr $ra
+
+####################################################
+# fxn clear_lines(): no args, checks for cleared lines
+# returns 1 in v0 if lines were cleared
+### clear lines ####################################
+clear_lines:
+    li $v0, 0
+    li $t0, 27          # start from bottom playable row (index 27)
+
+check_row_loop:
+    li $t1, 0           # start column 0
+    li $t2, 1           # assume full row
+
+check_col_loop:
+    li $t3, 16          # columns per row
+
+    mul $t4, $t0, $t3
+    add $t4, $t4, $t1
+    sll $t4, $t4, 2
+    la $t5, Board
+    add $t6, $t5, $t4
+    lw $t7, 0($t6)
+
+    beqz $t7, row_not_full # check if board[i][j] is 0
+
+    addi $t1, $t1, 1
+    ble $t1, 15, check_col_loop
+
+    li $v0, 1
+
+    li $t1, 0
+clear_row_loop:
+    mul $t4, $t0, $t3
+    add $t4, $t4, $t1
+    sll $t4, $t4, 2
+    la $t5, Board
+    add $t6, $t5, $t4
+    sw $zero, 0($t6)
+
+    addi $t1, $t1, 1
+    ble $t1, 15, clear_row_loop
+
+    addi $t8, $t0, -1
+
+shift_rows_loop:
+    li $t1, 0
+
+shift_cols_loop:
+    mul $t4, $t8, $t3
+    add $t4, $t4, $t1
+    sll $t4, $t4, 2
+    la $t5, Board
+    add $t6, $t5, $t4
+    lw $t7, 0($t6)
+
+    addi $t9, $t8, 1
+    mul $t4, $t9, $t3
+    add $t4, $t4, $t1
+    sll $t4, $t4, 2
+    add $t6, $t5, $t4
+    sw $t7, 0($t6)
+
+    addi $t1, $t1, 1
+    ble $t1, 15, shift_cols_loop
+
+    addi $t8, $t8, -1
+    bge $t8, 0, shift_rows_loop
+
+    j check_row_loop
+
+row_not_full:
+    addi $t0, $t0, -1
+    bge $t0, 0, check_row_loop
+
+    jr $ra
+
+
+
+#########################################################################
+# fxn redraw_board(): takes no params, returns void
+#########################################################################
+redraw_board:
+    lw $t0, ADDR_DSPL        # base framebuffer address → $t0
+    li $t1, 0                # row index (0–31)
+rb_row_loop:
+    li $t2, 0                # col index (0–15)
+rb_col_loop:
+    # Get color = Board[row][col]
+    mul $t3, $t1, 16         # row * 16
+    add $t3, $t3, $t2        # + col
+    sll $t3, $t3, 2          # *4 (word offset)
+    la $t4, Board
+    add $t4, $t4, $t3
+    lw $t5, 0($t4)           # $t5 = color
+
+    beqz $t5, rb_skip_cell      # skip if color == 0, need to adjust later
+
+    # Draw to screen at row+2, col+2
+    addi $t6, $t1, 2         # row + 2
+    addi $t7, $t2, 2         # col + 2
+    mul $t8, $t6, 128        # (row + 2) * 128
+    mul $t9, $t7, 4          # (col + 2) * 4
+    add $t8, $t8, $t9        # total offset
+    add $t8, $t8, $t0        # final address
+    sw $t5, 0($t8)
+
+rb_skip_cell:
+    addi $t2, $t2, 1
+    li $t9, 16
+    blt $t2, $t9, rb_col_loop
+
+    addi $t1, $t1, 1
+    li $t9, 28
+    blt $t1, $t9, rb_row_loop
+
+    jr $ra
+
+########### helper
+print_board:
+    li $t0, 0          # row index = 0
+pb_row_loop:
+    li $t1, 0          # col index = 0
+pb_col_loop:
+    # Calculate offset: (row * 16 + col) * 4
+    mul $t2, $t0, 16
+    add $t2, $t2, $t1
+    sll $t2, $t2, 2
+
+    la $t3, Board
+    add $t3, $t3, $t2
+    lw $a0, 0($t3)
+
+    li $v0, 1          # syscall 1: print int
+    syscall
+
+    # print space
+    li $a0, 32         # ASCII ' '
+    li $v0, 11         # syscall 11: print char
+    syscall
+
+    addi $t1, $t1, 1
+    li $t4, 16
+    blt $t1, $t4, pb_col_loop
+
+    # print newline after each row
+    li $a0, 10         # ASCII newline
+    li $v0, 11
+    syscall
+
+    addi $t0, $t0, 1
+    li $t4, 28
+    blt $t0, $t4, pb_row_loop
+
+    jr $ra
+
