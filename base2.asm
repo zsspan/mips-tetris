@@ -19,7 +19,7 @@
 ADDR_DSPL: .word 0x10008000  # base address for framebuffer
 Board: .space 1792   # 28 rows * 16 columns * 4 bytes = 2048 bytes
 ADDR_KBRD: .word 0xffff0000
-seed: .word 76575 # determines random seed
+seed: .word 312321 # determines random seed
 
 active_piece: .word 0
 active_row: .word 0
@@ -845,17 +845,77 @@ done_cp:
 ####################################################
 # fxn clear_lines(): no args, checks for cleared lines
 # returns 1 in v0 if lines were cleared
-### clear lines ####################################
+# uses a two pass approach, first iteration highlights, second shifts boar
 clear_lines:
-    li $v0, 0
-    li $t0, 27          # start from bottom playable row (index 27)
+    li $v0, 0 # no lines cleared yet
+    li $t0, 27 # start from bottom row
 
-check_row_loop:
-    li $t1, 0           # start column 0
-    li $t2, 1           # assume full row
+# pass 1: highlight all full rows
+highlight_pass_loop:
+    li $t1, 0 # col index
+    li $t2, 1 # assume full row
 
-check_col_loop:
-    li $t3, 16          # columns per row
+check_col_for_highlight:
+    li $t3, 16 # number of cols
+
+    mul $t4, $t0, $t3
+    add $t4, $t4, $t1
+    sll $t4, $t4, 2
+    la $t5, Board
+    add $t6, $t5, $t4
+    lw $t7, 0($t6) # check board[row][col]
+
+    beqz $t7, not_full_row_highlight # not full
+
+    addi $t1, $t1, 1
+    ble $t1, 15, check_col_for_highlight # repeat
+
+    # full row found, highlight it white
+    li $v0, 1 # mark true
+    li $t1, 15
+
+highlight_row_loop:
+    addi $t7, $t0, 2 # row' = (row + 2) * 128
+    li $t9, 128
+    mul $t7, $t7, $t9
+
+    addi $t8, $t1, 2 # col' = (col + 2) * 4
+    sll $t8, $t8, 2
+
+    # current pos = base + (row + 2) * 128 + (col + 2) * 4
+    lw $s0, ADDR_DSPL
+    add $s0, $s0, $t7
+    add $s0, $s0, $t8
+
+    li $t9, 0xFFFFFF # white color
+    sw $t9, 0($s0)
+
+    addi $t1, $t1, -1 # iterate back to fill row
+    bgez $t1, highlight_row_loop
+
+not_full_row_highlight:
+    addi $t0, $t0, -1
+    bgez $t0, highlight_pass_loop
+
+    # all rows are done now
+    bnez $v0, delay_start  # only delay + clear if v0 == 1
+    jr $ra # return early if v0 == 0
+
+delay_start:
+    li $v0, 32 # syscall for sleep
+    li $a0, 200 # sleep for 200 milliseconds
+    syscall
+
+    li $v0, 0 # for return value
+    li $t0, 27 # reset to 27, start pass 2
+    
+# pass 2: clear full rows and shift board
+clear_shift_pass_loop:
+    li $t1, 0
+    li $t2, 1
+
+check_col_for_clear:
+    li $t3, 16
 
     mul $t4, $t0, $t3
     add $t4, $t4, $t1
@@ -864,11 +924,12 @@ check_col_loop:
     add $t6, $t5, $t4
     lw $t7, 0($t6)
 
-    beqz $t7, row_not_full # check if board[i][j] is 0
+    beqz $t7, not_full_row_clear
 
     addi $t1, $t1, 1
-    ble $t1, 15, check_col_loop
+    ble $t1, 15, check_col_for_clear
 
+    # row is full, clear it and mark cleared in v0
     li $v0, 1
 
     li $t1, 0
@@ -883,6 +944,7 @@ clear_row_loop:
     addi $t1, $t1, 1
     ble $t1, 15, clear_row_loop
 
+    # shift rows above down
     addi $t8, $t0, -1
 
 shift_rows_loop:
@@ -909,14 +971,13 @@ shift_cols_loop:
     addi $t8, $t8, -1
     bge $t8, 0, shift_rows_loop
 
-    j check_row_loop
+    j clear_shift_pass_loop
 
-row_not_full:
+not_full_row_clear:
     addi $t0, $t0, -1
-    bge $t0, 0, check_row_loop
+    bge $t0, 0, clear_shift_pass_loop
 
     jr $ra
-
 
 
 #########################################################################
