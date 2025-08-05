@@ -446,11 +446,43 @@ hold_empty:
     sw $t3, held_color
 
     # spawn new piece (this will reset orientation, position)
-    jal spawn_piece
+    jal spawn_piece_returning # scuffed solution, ik
+
+    # draw held piece after first hold
+    la $a0, HoldNext
+    li $a1, 9         # row
+    li $a2, 21        # col
+    li $a3, 0x171717  # bg color
+    jal draw_ui_element
+
+    # load held piece pointer
+    lw $t0, held_piece       # $t0 = pointer to rotation array
+    lw $a0, 0($t0)           # $a0 = first rotation
+    lw $a1, held_color
+    li $a2, 10
+    li $a3, 22
+    jal draw_piece
+
 
 hold_done:
     li $t0, 1
     sw $t0, hold_used
+
+    # Clear the hold box background
+    la $a0, HoldNext
+    li $a1, 9
+    li $a2, 21
+    li $a3, 0x171717
+    jal draw_ui_element
+
+    # Draw held piece in hold box
+    lw $t0, held_piece           # pointer to rotation array
+    lw $a0, 0($t0)               # pointer to rotation 0
+    lw $a1, held_color           # color
+
+    li $a2, 10                   # row inside hold box
+    li $a3, 22                   # col inside hold box
+    jal draw_piece
 
     j game_loop
 
@@ -1312,3 +1344,78 @@ pb_col_loop:
 
     jr $ra
 
+# basically, in the initial hold we have to return after spawning a piece
+# this is to populate the hold preview and to set the hold boolean to true
+# for some reason trying to change spawn_piece to accept a flag causing returns is breaking everything
+spawn_piece_returning:
+    addi $sp, $sp, -4 # push ra onto the stack
+    sw $ra, 0($sp)
+    
+    sw $zero, hold_used
+    sw $zero, active_orientation
+
+    # use the next piece index as current piece (initialized to 0) -fix later
+    lw $t0, next_piece_index # $t0 = piece index
+    sll $t7, $t0, 2 # offset = index * 4 bytes
+
+    la $t8, PieceColors # get corresponding colour
+    add $t9, $t8, $t7
+    lw $t1, 0($t9)
+    sw $t1, active_color
+
+    la $t6, AllPieces # get corresponding piece
+    add $t6, $t6, $t7
+    lw $t7, 0($t6)
+    sw $t7, active_rotation_block # which is held_piece on first hold
+
+    lw $t2, 0($t7)
+    sw $t2, active_piece
+
+    # where to place the current piece
+    li $t3, 2
+    sw $t3, active_row
+    li $t4, 8
+    sw $t4, active_col
+
+generate_new_next_returning:    
+    # first, reset the preview box
+    la $a0, PreviewNext
+    li $a1, 3          # start row (y)
+    li $a2, 21          # start col (x)
+    li $a3, 0x171717
+    jal draw_ui_element
+    
+    li $a0, 0 # random
+    li $a1, 7
+    li $v0, 42
+    syscall
+    # li $a0, 0       # force index to 0 (I piece) - temp
+
+    sw $a0, next_piece_index # store new next piece index
+    
+    # draw next piece
+    sll $t5, $a0, 2
+    la $t6, AllPieces
+    add $t6, $t6, $t5
+    lw $t7, 0($t6) # pointer to rotation array
+    lw $a0, 0($t7) # next piece = first rotation
+    la $t8, PieceColors
+
+    # now, we can draw the next piece in the preview
+    add $t9, $t8, $t5
+    lw $a1, 0($t9) # colour
+    li $a2, 4 # preview row
+    li $a3, 23 # preview col
+    jal draw_piece
+
+    # check for game over using can_place_piece
+    lw $a0, active_piece
+    lw $a1, active_row
+    lw $a2, active_col
+    
+    jal can_place_piece # if v0 == 0, game over
+    beqz $v0, quit
+
+    lw $ra, 0($sp)
+    addi $sp, $sp, 4
+    jr $ra
