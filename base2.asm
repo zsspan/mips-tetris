@@ -19,7 +19,7 @@
 ADDR_DSPL: .word 0x10008000  # base address for framebuffer
 Board: .space 1680   # 28 rows * 15 columns * 4 bytes = 2048 bytes
 ADDR_KBRD: .word 0xffff0000
-seed: .word 41321421 # determines random seed
+seed: .word 43829 # determines random seed
 
 active_piece: .word 0
 active_row: .word 0
@@ -211,8 +211,6 @@ O_piece_270:
     .byte 0,1,1,0
     .byte 0,0,0,0
 
-gray_color: .word 0x262626
-
 
 LetterP:
     .word 1, 1, 1, 0, 0, 0, 0   # Row 0: XXX_
@@ -242,6 +240,17 @@ PreviewNext:
     .word 1, 1, 1, 1, 1, 1, 1   # Row 3: ___X
     .word 1, 1, 1, 1, 1, 1, 1   # Row 4: XXX_
 
+HoldNext:
+    .word 0, 1, 1, 1, 1, 1, 0   # Row 0: _XXX
+    .word 1, 1, 1, 1, 1, 1, 1   # Row 1: X___
+    .word 1, 1, 1, 1, 1, 1, 1   # Row 2: _XX_
+    .word 1, 1, 1, 1, 1, 1, 1   # Row 3: ___X
+    .word 0, 1, 1, 1, 1, 1, 0   # Row 4: XXX_
+
+held_piece:      .word 0 # current held
+hold_used:       .word 0 # 1 if already held per spawn
+held_color: .word 0
+
 .text
 .globl main
 main:
@@ -261,7 +270,7 @@ main:
     lw $a1, seed  # seed
     li $v0, 40     # syscall 40
     syscall
-
+    
     sw $zero, active_orientation # init to 0
 
     # random nonsense
@@ -277,9 +286,33 @@ main:
     sw $t1, active_row
     li $t1, 8 # col = center
     sw $t1, active_col
-
     li $t1, 0x9999ff
     sw $t1, active_color
+    
+    # we also have to set the next piece
+    li $a0, 0 # random
+    li $a1, 7
+    li $v0, 42
+    syscall
+    move $t2, $a0 # store next_piece_index
+    sw $t2, next_piece_index
+    
+    # place next piece into preview
+    sll $t3, $t2, 2
+    la $t4, AllPieces
+    add $t4, $t4, $t3
+    lw $t5, 0($t4) # pointer to pieces' rotation array
+
+    lw $a0, 0($t5) # first rotation of preview piece
+
+    la $t6, PieceColors
+    add $t6, $t6, $t3
+    lw $a1, 0($t6) # piece color
+    
+    li $a2, 4 # row
+    li $a3, 23 # col in preview
+    
+    jal draw_piece # we call with a0, a1, a2, a3
 
 
 game_loop:
@@ -290,7 +323,7 @@ game_loop:
     # 1b. read the key and check keypress
     lw $t1, 4($s7) # $t1 = ASCII keycode
 
-    # 'w' = move left
+    # 'w' = rotate
     li $t2, 119
     beq $t1, $t2, try_rotate
     
@@ -305,6 +338,10 @@ game_loop:
     # 's' = move down
     li $t2, 115
     beq $t1, $t2, move_down
+
+    # 'e' = hold
+    li $t2, 101
+    beq $t1, $t2, try_hold
 
     # 'q' = quit
     li $t2, 113
@@ -358,6 +395,64 @@ try_rotate:
 
 rotate_fail:
     j    game_loop
+
+
+try_hold:
+    lw $t0, hold_used
+    bnez $t0, game_loop   # if hold already used, ignore input
+
+    # clear current piece from board
+    lw $a0, active_piece
+    lw $a1, active_row
+    lw $a2, active_col
+    jal clear_piece
+
+    lw $t1, held_piece
+    beqz $t1, hold_empty  # if no held piece, jump to hold_empty
+
+    # swap active piece and held piece
+    lw $t2, active_rotation_block
+
+    # swap pieces
+    sw $t1, active_rotation_block
+    sw $t2, held_piece
+
+    # swap colors (if you track colors)
+    lw $t3, active_color
+    lw $t4, held_color
+    sw $t4, active_color
+    sw $t3, held_color
+
+    # reset orientation and position
+    sw $zero, active_orientation
+    li $t5, 2
+    sw $t5, active_row
+    li $t6, 8
+    sw $t6, active_col
+
+    # load first rotation of new active piece
+    lw $t7, active_rotation_block
+    lw $t8, 0($t7)
+    sw $t8, active_piece
+
+    j hold_done
+
+hold_empty:
+    # hold is empty, so store current piece in held_piece
+    lw $t9, active_rotation_block
+    sw $t9, held_piece
+
+    lw $t3, active_color
+    sw $t3, held_color
+
+    # spawn new piece (this will reset orientation, position)
+    jal spawn_piece
+
+hold_done:
+    li $t0, 1
+    sw $t0, hold_used
+
+    j game_loop
 
 
 move_left:
@@ -432,6 +527,7 @@ move_down_lock:
     # keep creating pieces next
 
 spawn_piece:
+    sw $zero, hold_used
     sw $zero, active_orientation
 
     # use the next piece index as current piece (initialized to 0) -fix later
@@ -446,7 +542,7 @@ spawn_piece:
     la $t6, AllPieces # get corresponding piece
     add $t6, $t6, $t7
     lw $t7, 0($t6)
-    sw $t7, active_rotation_block
+    sw $t7, active_rotation_block # which is held_piece on first hold
 
     lw $t2, 0($t7)
     sw $t2, active_piece
@@ -460,12 +556,12 @@ spawn_piece:
 generate_new_next:    
     # first, reset the preview box
     la $a0, PreviewNext
-    li $a1, 4          # start row (y)
+    li $a1, 3          # start row (y)
     li $a2, 21          # start col (x)
     li $a3, 0x171717
     jal draw_ui_element
     
-    li $a0, 0
+    li $a0, 0 # random
     li $a1, 7
     li $v0, 42
     syscall
@@ -481,7 +577,7 @@ generate_new_next:
     lw $a0, 0($t7) # next piece = first rotation
     la $t8, PieceColors
 
-    # now, we can draw the next one
+    # now, we can draw the next piece in the preview
     add $t9, $t8, $t5
     lw $a1, 0($t9) # colour
     li $a2, 4 # preview row
@@ -627,7 +723,13 @@ draw_static_ui:
     jal draw_ui_element
 
     la $a0, PreviewNext
-    li $a1, 4          # start row (y)
+    li $a1, 3          # start row (y)
+    li $a2, 21          # start col (x)
+    li $a3, 0x171717
+    jal draw_ui_element
+
+    la $a0, HoldNext
+    li $a1, 9         # start row (y)
     li $a2, 21          # start col (x)
     li $a3, 0x171717
     jal draw_ui_element
@@ -707,7 +809,7 @@ start_drawing: # this is basically a do while loop
 
 ##############################################################################
 # fxn draw_piece(a0, a1, a2, a3): draws a piece
-# a2, a3 are row and column (indices), a0/a1 is colour?
+# a2, a3 are row and column (indices), a0/a1 is piece/colour
 ##################################################333
 draw_piece:
     move $t0, $a0        # piece pointer
