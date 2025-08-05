@@ -17,9 +17,9 @@
 #####################################################################
 .data
 ADDR_DSPL: .word 0x10008000  # base address for framebuffer
-Board: .space 1792   # 28 rows * 16 columns * 4 bytes = 2048 bytes
+Board: .space 1680   # 28 rows * 15 columns * 4 bytes = 2048 bytes
 ADDR_KBRD: .word 0xffff0000
-seed: .word 312321 # determines random seed
+seed: .word 41321421 # determines random seed
 
 active_piece: .word 0
 active_row: .word 0
@@ -27,6 +27,8 @@ active_col: .word 5
 active_color: .word 0
 active_orientation: .word 0
 active_rotation_block: .word 0
+
+next_piece_index: .word 0
 
 # parallel list of pieces and colours
 AllPieces: .word I_piece_rotations, L_piece_rotations, T_piece_rotations, O_piece_rotations, S_piece_rotations, Z_piece_rotations, J_piece_rotations
@@ -186,30 +188,59 @@ Z_piece_270:
     .byte 0,0,0,0
 
 O_piece:
-    .byte 0,1,1,0
-    .byte 0,1,1,0
     .byte 0,0,0,0
+    .byte 0,1,1,0
+    .byte 0,1,1,0
     .byte 0,0,0,0
 
 O_piece_90:
-    .byte 0,1,1,0
-    .byte 0,1,1,0
     .byte 0,0,0,0
+    .byte 0,1,1,0
+    .byte 0,1,1,0
     .byte 0,0,0,0
 
 O_piece_180:
-    .byte 0,1,1,0
-    .byte 0,1,1,0
     .byte 0,0,0,0
+    .byte 0,1,1,0
+    .byte 0,1,1,0
     .byte 0,0,0,0
 
 O_piece_270:
-    .byte 0,1,1,0
-    .byte 0,1,1,0
     .byte 0,0,0,0
+    .byte 0,1,1,0
+    .byte 0,1,1,0
     .byte 0,0,0,0
 
 gray_color: .word 0x262626
+
+
+LetterP:
+    .word 1, 1, 1, 0, 0, 0, 0   # Row 0: XXX_
+    .word 1, 0, 1, 0, 0, 0, 0   # Row 1: X_X_
+    .word 1, 1, 1, 0, 0, 0, 0   # Row 2: XXX_
+    .word 1, 0, 0, 0, 0, 0, 0   # Row 3: X___
+    .word 1, 0, 0, 0, 0, 0, 0   # Row 4: X___
+
+LetterT:
+    .word 1, 1, 1, 0, 0, 0, 0   # Row 0: XXXX
+    .word 0, 1, 0, 0, 0, 0, 0   # Row 1: __X_
+    .word 0, 1, 0, 0, 0, 0, 0   # Row 2: __X_
+    .word 0, 1, 0, 0, 0, 0, 0   # Row 3: __X_
+    .word 0, 1, 0, 0, 0, 0, 0   # Row 4: __X_
+
+LetterS:
+    .word 1, 1, 1, 0, 0, 0, 0   # Row 0: _XXX
+    .word 1, 0, 0, 0, 0, 0, 0   # Row 1: X___
+    .word 1, 1, 1, 0, 0, 0, 0   # Row 2: _XX_
+    .word 0, 0, 1, 0, 0, 0, 0   # Row 3: ___X
+    .word 1, 1, 1, 0, 0, 0, 0   # Row 4: XXX_
+
+PreviewNext:
+    .word 1, 1, 1, 1, 1, 1, 1   # Row 0: _XXX
+    .word 1, 1, 1, 1, 1, 1, 1   # Row 1: X___
+    .word 1, 1, 1, 1, 1, 1, 1   # Row 2: _XX_
+    .word 1, 1, 1, 1, 1, 1, 1   # Row 3: ___X
+    .word 1, 1, 1, 1, 1, 1, 1   # Row 4: XXX_
 
 .text
 .globl main
@@ -218,6 +249,7 @@ main:
     lw $s7, 0($s7)       # now $s7 = 0xffff0000
 
     # setup and draw static UI
+    li $a0, 1 # init game takes a boolean
     jal init_game
 
     # re-load keyboard addr just in case
@@ -391,6 +423,7 @@ move_down_lock:
 
     beqz $v0, spawn_piece # no clearing happened
     # else redraw board
+    li $a1, 0 # init_game takes 0 if not first time
     jal init_game # this will clear the board (not ideal b/c it redraws red, but wtv)
     # now we redraw the board
     # jal print_board
@@ -399,47 +432,75 @@ move_down_lock:
     # keep creating pieces next
 
 spawn_piece:
-    sw $zero, active_orientation # set each to 0
+    sw $zero, active_orientation
 
-    # get random number
-    li $a0, 0 # generator ID (MUST BE SET)
-    li $a1, 7 # NUMBER OF PIECES
+    # use the next piece index as current piece (initialized to 0) -fix later
+    lw $t0, next_piece_index # $t0 = piece index
+    sll $t7, $t0, 2 # offset = index * 4 bytes
+
+    la $t8, PieceColors # get corresponding colour
+    add $t9, $t8, $t7
+    lw $t1, 0($t9)
+    sw $t1, active_color
+
+    la $t6, AllPieces # get corresponding piece
+    add $t6, $t6, $t7
+    lw $t7, 0($t6)
+    sw $t7, active_rotation_block
+
+    lw $t2, 0($t7)
+    sw $t2, active_piece
+
+    # where to place the current piece
+    li $t3, 2
+    sw $t3, active_row
+    li $t4, 8
+    sw $t4, active_col
+
+generate_new_next:    
+    # first, reset the preview box
+    la $a0, PreviewNext
+    li $a1, 4          # start row (y)
+    li $a2, 21          # start col (x)
+    li $a3, 0x171717
+    jal draw_ui_element
+    
+    li $a0, 0
+    li $a1, 7
     li $v0, 42
-    syscall # result is in $a0
+    syscall
     # li $a0, 0       # force index to 0 (I piece) - temp
 
-    sll $t7, $a0, 2 # offset = (random_index) * 4 (use this for piece + colour)
-
-    la $t8, PieceColors # base address of PieceColors
-    add $t9, $t8, $t7 # t9 = address of PieceColors[index]
-    lw $t0, 0($t9) # t0 = colour of piece
-    sw $t0, active_color # make colour active
-
-    la $t6, AllPieces # base address of array
-    add $t6, $t6, $t7 # pointer to AllPieces[index]
-    lw $t7, 0($t6) # load the rotation block pointer
-    sw $t7, active_rotation_block # active_rotation_block = t7*
+    sw $a0, next_piece_index # store new next piece index
     
-    lw $t0, 0($t7) # rotation 0 of the current piece
-    sw $t0, active_piece
+    # draw next piece
+    sll $t5, $a0, 2
+    la $t6, AllPieces
+    add $t6, $t6, $t5
+    lw $t7, 0($t6) # pointer to rotation array
+    lw $a0, 0($t7) # next piece = first rotation
+    la $t8, PieceColors
+
+    # now, we can draw the next one
+    add $t9, $t8, $t5
+    lw $a1, 0($t9) # colour
+    li $a2, 4 # preview row
+    li $a3, 23 # preview col
+    jal draw_piece
+
+    # check for game over using can_place_piece
+    lw $a0, active_piece
+    lw $a1, active_row
+    lw $a2, active_col
     
-    li $t1, 2
-    sw $t1, active_row
-    li $t2, 8
-    sw $t2, active_col
+    jal can_place_piece # if v0 == 0, game over
+    beqz $v0, quit
 
-    lw $a0 active_piece
-    lw $a1 active_row
-    lw $a2 active_col
-
-
-    jal can_place_piece # check if the game is over (v0 = 0)
-    beq $zero, $v0 quit
-    
     j game_loop
 
 ##############################################################################
-
+# we will pass a1 = 0 here. on start it will do everything, later it stops early
+# a1 == 1 --> first time
 init_game:
     lw $t0, ADDR_DSPL        # $t0 = base framebuffer address
     li $t1, 0xa40c50         # red color
@@ -449,7 +510,7 @@ init_game:
     li $t2, 0           # row index
     li $t3, 32          # total rows (64 * 4 = 256 pixels)
 
-    # PLAY AREA IS FROM COL 2 to 17 (16 blocks wide)
+    # PLAY AREA IS FROM COL 2 to 16 (15 blocks wide)
 
 draw_loop:
     mul $t4, $t2, 128        # offset = row * 128 bytes (32 units * 4 bytes)
@@ -469,17 +530,25 @@ draw_loop:
     addi $t8, $t5, 4       # col 1 = $t5 + 4
     sw $t1, 0($t8)
 
-    # Draw right border (col 18 + 19)
-    li $t6, 18
+    # Draw right border (col 17 + 18)
+    li $t6, 17
+    mul $t7, $t6, 4
+    add $t8, $t5, $t7
+    sw $t1, 0($t8) # now we need to do 31 (14 times 4)
+    add $t8, $t8, 4
+    sw $t1, 0($t8)
+
+    # also do 30 + 31
+    li $t6, 30
     mul $t7, $t6, 4
     add $t8, $t5, $t7
     sw $t1, 0($t8)
     add $t8, $t8, 4
     sw $t1, 0($t8)
-
-    # Clear play area (cols 2 to 17)
+    
+    # Clear play area (cols 2 to 16)
     li $t6, 2        # start col
-    li $t7, 17       # end col (inclusive)
+    li $t7, 16       # end col (inclusive)
 
 clear_loop:
     #t2, t6 is row (index) / column (index)
@@ -504,14 +573,19 @@ continue_clear:
     addi $t6, $t6, 1
     ble $t6, $t7, clear_loop # if not done clearing the area
 
-    # UI area -purple (cols 29 to 31)
-    li $t6, 20
-    li $t7, 31
+    # we will need some break here (to avoid overwriting UI chunks)
+    bnez $a0, initial_draw # if a0 == 1, not first time
+    jr $ra
+
+initial_draw:
+    # UI area -purple (cols 19 to 29)
+    li $t6, 19
+    li $t7, 29
 
 ui_loop:
     mul $t9, $t6, 4
     addu $t4, $t5, $t9
-    sw $s5, 0($t4) # mark it mystery colour for now
+    sw $s5, 0($t4) # mark it mystery colour for now comeback
     addi $t6, $t6, 1
     ble $t6, $t7, ui_loop
 
@@ -530,7 +604,86 @@ next_row:
     addi $t2, $t2, 1
     blt $t2, $t3, draw_loop
 
+draw_static_ui:
+    addi $sp, $sp, -4 # push ra onto the stack
+    sw $ra, 0($sp)
+
+    la $a0, LetterP
+    li $a1, 16          # start row (y)
+    li $a2, 20          # start col (x)
+    li $a3, 0xffffff    # white color
+    jal draw_ui_element
+
+    la $a0, LetterT
+    li $a1, 16          # start row (y)
+    li $a2, 23          # start col (x)
+    li $a3, 0xddabdc
+    jal draw_ui_element
+
+    la $a0, LetterS
+    li $a1, 16          # start row (y)
+    li $a2, 26          # start col (x)
+    li $a3, 0xffffff
+    jal draw_ui_element
+
+    la $a0, PreviewNext
+    li $a1, 4          # start row (y)
+    li $a2, 21          # start col (x)
+    li $a3, 0x171717
+    jal draw_ui_element
+    
+    lw $ra, 0($sp) # pop ra
+    addi $sp, $sp, 4
     jr $ra
+
+
+##############################################
+# fxn draw_ui_element(a0, a1, a2, a3):
+# args: element, row, col, colour
+##############################################
+draw_ui_element:
+    lw $t0, ADDR_DSPL       # framebuffer base
+    move $s0, $a0           # bitmap base addr
+    li $t1, 5               # rows
+    li $t2, 7               # cols
+    li $t3, 0               # row index
+
+pts_row_loop:
+    li $t4, 0               # col index
+
+pts_col_loop:
+    # offset = row*28 + col*4 bytes
+    li $t9, 28 # 28 because 7 cols * 4 bytes
+    mul $t5, $t3, $t9
+    addu $t6, $s0, $t5      # bitmap base + row offset
+    sll $t7, $t4, 2         # col * 4
+    addu $t6, $t6, $t7      # pixel addr in bitmap
+
+    lw $t8, 0($t6)          # load pixel (0 or 1)
+    beqz $t8, pts_skip_pixel
+
+    # framebuffer pixel addr = framebuffer_base + ((y+row)*128 + (x+col))*4
+    addu $t9, $a1, $t3      # y + row
+    sll $t9, $t9, 7         # *128 (framebuffer width)
+    addu $t7, $a2, $t4      # x + col
+    sll $t7, $t7, 2         # *4 bytes per pixel
+    addu $t9, $t9, $t0      # add framebuffer base
+    addu $t9, $t9, $t7      # add col offset
+
+    sw $a3, 0($t9)          # draw pixel with color
+
+pts_skip_pixel:
+    addi $t4, $t4, 1
+    blt $t4, $t2, pts_col_loop
+
+    addi $t3, $t3, 1
+    blt $t3, $t1, pts_row_loop
+
+    jr $ra
+
+
+
+
 
 
 ##############################################################################
@@ -554,8 +707,8 @@ start_drawing: # this is basically a do while loop
 
 ##############################################################################
 # fxn draw_piece(a0, a1, a2, a3): draws a piece
-# a2, a3 are row and column (indices)
-
+# a2, a3 are row and column (indices), a0/a1 is colour?
+##################################################333
 draw_piece:
     move $t0, $a0        # piece pointer
     move $t1, $a1        # color
@@ -667,7 +820,7 @@ lp_col_loop:
     add $t5, $a2, $t0       # board row
     add $t6, $a3, $t1        # board col
 
-    li $t7, 16
+    li $t7, 15
     mul $t8, $t5, $t7
     add $t8, $t8, $t6
     sll $t8, $t8, 2         # multiply by 4
@@ -731,18 +884,18 @@ col_loop:
     li $t7, 30
     bge $t9, $t7, fail_move
     
-    # check col > 1 and < 14
+    # check col > 1 and < 17
     li $t7, 1
     ble $t6, $t7, fail_move
-    li $t7, 18
+    li $t7, 17
     bge $t6, $t7, fail_move
 
     subi $t6, $t6, 2
     subi $t9, $t9, 2
     
     # check collision in Board[abs_row][abs_col]
-    li $t7, 16
-    mul $t7, $t9, $t7         # t7 = abs_row * 16
+    li $t7, 15
+    mul $t7, $t9, $t7         # t7 = abs_row * 15
     add $t7, $t7, $t6         # + abs_col
     sll $t7, $t7, 2           # * 4 (word address)
 
@@ -807,15 +960,15 @@ col_loop_cp:
     # check cols > 1 and < 18
     li $t9, 1
     ble $t8, $t9, fail_cp
-    li $t9, 18
+    li $t9, 17
     bge $t8, $t9, fail_cp
 
     subi $t7, $t7, 2
     subi $t8, $t8, 2
     
     # check collision on Board
-    li $t9, 16
-    mul $t9, $t7, $t9      # row * 16
+    li $t9, 15
+    mul $t9, $t7, $t9      # row * 15
     add $t9, $t9, $t8      # + col
     sll $t9, $t9, 2        # * 4 bytes
 
@@ -856,7 +1009,7 @@ highlight_pass_loop:
     li $t2, 1 # assume full row
 
 check_col_for_highlight:
-    li $t3, 16 # number of cols
+    li $t3, 15 # number of cols
 
     mul $t4, $t0, $t3
     add $t4, $t4, $t1
@@ -868,11 +1021,11 @@ check_col_for_highlight:
     beqz $t7, not_full_row_highlight # not full
 
     addi $t1, $t1, 1
-    ble $t1, 15, check_col_for_highlight # repeat
+    ble $t1, 14, check_col_for_highlight # repeat
 
     # full row found, highlight it white
     li $v0, 1 # mark true
-    li $t1, 15
+    li $t1, 14
 
 highlight_row_loop:
     addi $t7, $t0, 2 # row' = (row + 2) * 128
@@ -915,7 +1068,7 @@ clear_shift_pass_loop:
     li $t2, 1
 
 check_col_for_clear:
-    li $t3, 16
+    li $t3, 15
 
     mul $t4, $t0, $t3
     add $t4, $t4, $t1
@@ -927,7 +1080,7 @@ check_col_for_clear:
     beqz $t7, not_full_row_clear
 
     addi $t1, $t1, 1
-    ble $t1, 15, check_col_for_clear
+    ble $t1, 14, check_col_for_clear
 
     # row is full, clear it and mark cleared in v0
     li $v0, 1
@@ -942,7 +1095,7 @@ clear_row_loop:
     sw $zero, 0($t6)
 
     addi $t1, $t1, 1
-    ble $t1, 15, clear_row_loop
+    ble $t1, 14, clear_row_loop
 
     # shift rows above down
     addi $t8, $t0, -1
@@ -966,7 +1119,7 @@ shift_cols_loop:
     sw $t7, 0($t6)
 
     addi $t1, $t1, 1
-    ble $t1, 15, shift_cols_loop
+    ble $t1, 14, shift_cols_loop
 
     addi $t8, $t8, -1
     bge $t8, 0, shift_rows_loop
@@ -990,7 +1143,7 @@ rb_row_loop:
     li $t2, 0                # col index (0–15)
 rb_col_loop:
     # Get color = Board[row][col]
-    mul $t3, $t1, 16         # row * 16
+    mul $t3, $t1, 15         # row * 15
     add $t3, $t3, $t2        # + col
     sll $t3, $t3, 2          # *4 (word offset)
     la $t4, Board
@@ -1010,7 +1163,7 @@ rb_col_loop:
 
 rb_skip_cell:
     addi $t2, $t2, 1
-    li $t9, 16
+    li $t9, 15
     blt $t2, $t9, rb_col_loop
 
     addi $t1, $t1, 1
@@ -1025,8 +1178,8 @@ print_board:
 pb_row_loop:
     li $t1, 0          # col index = 0
 pb_col_loop:
-    # Calculate offset: (row * 16 + col) * 4
-    mul $t2, $t0, 16
+    # Calculate offset: (row * 15 + col) * 4
+    mul $t2, $t0, 15
     add $t2, $t2, $t1
     sll $t2, $t2, 2
 
@@ -1043,7 +1196,7 @@ pb_col_loop:
     syscall
 
     addi $t1, $t1, 1
-    li $t4, 16
+    li $t4, 15
     blt $t1, $t4, pb_col_loop
 
     # print newline after each row
