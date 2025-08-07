@@ -274,6 +274,108 @@ held_color: .word 0
 
 score: .word 0
 
+DigitTable:
+    .word Digit0
+    .word Digit1
+    .word Digit2
+    .word Digit3
+    .word Digit4
+    .word Digit5
+    .word Digit6
+    .word Digit7
+    .word Digit8
+    .word Digit9
+
+Digit0:
+    .word 1,1,1,0,0,0,0,0,0
+    .word 1,0,1,0,0,0,0,0,0
+    .word 1,0,1,0,0,0,0,0,0
+    .word 1,0,1,0,0,0,0,0,0
+    .word 1,1,1,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+
+Digit1:
+    .word 0,1,0,0,0,0,0,0,0
+    .word 1,1,0,0,0,0,0,0,0
+    .word 0,1,0,0,0,0,0,0,0
+    .word 0,1,0,0,0,0,0,0,0
+    .word 1,1,1,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+
+Digit2:
+    .word 1,1,1,0,0,0,0,0,0
+    .word 0,0,1,0,0,0,0,0,0
+    .word 1,1,1,0,0,0,0,0,0
+    .word 1,0,0,0,0,0,0,0,0
+    .word 1,1,1,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+
+Digit3:
+    .word 1,1,1,0,0,0,0,0,0
+    .word 0,0,1,0,0,0,0,0,0
+    .word 1,1,1,0,0,0,0,0,0
+    .word 0,0,1,0,0,0,0,0,0
+    .word 1,1,1,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+
+Digit4:
+    .word 1,0,1,0,0,0,0,0,0
+    .word 1,0,1,0,0,0,0,0,0
+    .word 1,1,1,0,0,0,0,0,0
+    .word 0,0,1,0,0,0,0,0,0
+    .word 0,0,1,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+
+Digit5:
+    .word 1,1,1,0,0,0,0,0,0
+    .word 1,0,0,0,0,0,0,0,0
+    .word 1,1,1,0,0,0,0,0,0
+    .word 0,0,1,0,0,0,0,0,0
+    .word 1,1,1,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+
+Digit6:
+    .word 1,1,1,0,0,0,0,0,0
+    .word 1,0,0,0,0,0,0,0,0
+    .word 1,1,1,0,0,0,0,0,0
+    .word 1,0,1,0,0,0,0,0,0
+    .word 1,1,1,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+
+Digit7:
+    .word 1,1,1,0,0,0,0,0,0
+    .word 0,0,1,0,0,0,0,0,0
+    .word 0,1,0,0,0,0,0,0,0
+    .word 0,1,0,0,0,0,0,0,0
+    .word 0,1,0,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+
+Digit8:
+    .word 1,1,1,0,0,0,0,0,0
+    .word 1,0,1,0,0,0,0,0,0
+    .word 1,1,1,0,0,0,0,0,0
+    .word 1,0,1,0,0,0,0,0,0
+    .word 1,1,1,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+
+Digit9:
+    .word 1,1,1,0,0,0,0,0,0
+    .word 1,0,1,0,0,0,0,0,0
+    .word 1,1,1,0,0,0,0,0,0
+    .word 0,0,1,0,0,0,0,0,0
+    .word 1,1,1,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+    .word 0,0,0,0,0,0,0,0,0
+
 .text
 .globl main
 main:
@@ -879,6 +981,9 @@ pts_skip_pixel:
 
 
 
+
+
+
 ##############################################################################
 start_drawing: # this is basically a do while loop
     addi $sp, $sp, -4 # push
@@ -1407,34 +1512,76 @@ pb_col_loop:
     blt $t0, $t4, pb_row_loop
 
     jr $ra
-
-update_score:
-    addi $sp, $sp, -4 # push ra
-    sw $ra, 0($sp)
     
+update_score:
+    # push ra
+    addi $sp, $sp, -4
+    sw $ra, 0($sp)
+
     # clear grid
     la $a0, ScoreBoard
     li $a1, 22         # start row (y)
     li $a2, 20          # start col (x)
     li $a3, 0x171717
     jal draw_ui_element
+    
+    la $s0, DigitTable # base address
 
-    la $a0, LetterP
-    li $a1, 23         # start row (y)
-    li $a2, 22          # start col (x)
-    li $a3, 0xab89ce
+    lw $t0, score # use score = 432 as example
+
+    li $t1, 100
+    div $t0, $t1
+    mflo $t2 # hundreds digit (432 // 100 = 4)
+    
+    mul $t3, $t2, $t1 # t3 = hundreds * 100 = (400)
+    sub $t4, $t0, $t3 # 432 - 400 = 32
+
+    li $t1, 10
+    div $t4, $t1 # 32 // 10 = 3
+    mflo $t5 # tens digit 
+
+    mul $t6, $t5, $t1 # 32 - 30 = 2
+    sub $t7, $t4, $t6 # ones digit
+
+    # Load pointer to hundreds digit bitmap
+    sll $t8, $t2, 2       # digit * 4 bytes (word offset)
+    addu $s1, $s0, $t8
+    lw $s1, 0($s1)        # $s1 = hundreds digit bitmap address
+
+    # Load pointer to tens digit bitmap
+    sll $t8, $t5, 2
+    addu $s2, $s0, $t8
+    lw $s2, 0($s2)        # $s2 = tens digit bitmap address
+
+    # Load pointer to ones digit bitmap
+    sll $t8, $t7, 2
+    addu $s3, $s0, $t8
+    lw $s3, 0($s3)        # $s3 = ones digit bitmap address
+
+    # Now t2, t5, t7 = hundreds, tens, ones
+    # s1, s2, s3 = addresses (s registers aren't used in draw_ui_element)
+
+    # we can now display these
+    # draw_ui_element takes pointer, row, column, colour
+    move $a0, $s1
+    li $a1, 23
+    li $a2, 20
+    li $a3, 0xffffff
     jal draw_ui_element
-    
-    #update score somehow
-    lw $a0, score # print score for now
-    li $v0, 1
-    syscall
 
-    li $v0, 11 # newline
-    li $a0, 10
-    syscall
+    move $a0, $s2
+    li $a1, 23
+    li $a2, 23
+    li $a3, 0xddabdc
+    jal draw_ui_element
 
-    lw $ra, 0($sp) # pop ra
+    move $a0, $s3
+    li $a1, 23
+    li $a2, 26
+    li $a3, 0xffffff
+    jal draw_ui_element
+
+    # pop ra
+    lw $ra, 0($sp)
     addi $sp, $sp, 4
-    
     jr $ra
