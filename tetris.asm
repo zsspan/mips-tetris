@@ -1252,14 +1252,14 @@ col_loop:
     bnez $t9, fail_move # if board[i][j] == 1, its already occupied
 
 skip_cell:
-    addi  $t5, $t5, 1
-    blt   $t5, 4, col_loop
+    addi $t5, $t5, 1
+    blt $t5, 4, col_loop
 
-    addi  $t4, $t4, 1
-    blt   $t4, 4, row_loop
+    addi $t4, $t4, 1
+    blt $t4, 4, row_loop
 
-    li    $v0, 1
-    j     done_move
+    li $v0, 1
+    j done_move
 
 fail_move:
     li    $v0, 0
