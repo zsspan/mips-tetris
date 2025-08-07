@@ -213,43 +213,66 @@ O_piece_270:
 
 
 LetterP:
-    .word 1, 1, 1, 0, 0, 0, 0   # Row 0: XXX_
-    .word 1, 0, 1, 0, 0, 0, 0   # Row 1: X_X_
-    .word 1, 1, 1, 0, 0, 0, 0   # Row 2: XXX_
-    .word 1, 0, 0, 0, 0, 0, 0   # Row 3: X___
-    .word 1, 0, 0, 0, 0, 0, 0   # Row 4: X___
+    .word 1, 1, 1, 0, 0, 0, 0, 0, 0
+    .word 1, 0, 1, 0, 0, 0, 0, 0, 0
+    .word 1, 1, 1, 0, 0, 0, 0, 0, 0
+    .word 1, 0, 0, 0, 0, 0, 0, 0, 0
+    .word 1, 0, 0, 0, 0, 0, 0, 0, 0
+    .word 0, 0, 0, 0, 0, 0, 0, 0, 0
+    .word 0, 0, 0, 0, 0, 0, 0, 0, 0
+
 
 LetterT:
-    .word 1, 1, 1, 0, 0, 0, 0   # Row 0: XXXX
-    .word 0, 1, 0, 0, 0, 0, 0   # Row 1: __X_
-    .word 0, 1, 0, 0, 0, 0, 0   # Row 2: __X_
-    .word 0, 1, 0, 0, 0, 0, 0   # Row 3: __X_
-    .word 0, 1, 0, 0, 0, 0, 0   # Row 4: __X_
+    .word 1, 1, 1, 0, 0, 0, 0, 0, 0
+    .word 0, 1, 0, 0, 0, 0, 0, 0, 0
+    .word 0, 1, 0, 0, 0, 0, 0, 0, 0
+    .word 0, 1, 0, 0, 0, 0, 0, 0, 0
+    .word 0, 1, 0, 0, 0, 0, 0, 0, 0
+    .word 0, 0, 0, 0, 0, 0, 0, 0, 0
+    .word 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 LetterS:
-    .word 1, 1, 1, 0, 0, 0, 0   # Row 0: _XXX
-    .word 1, 0, 0, 0, 0, 0, 0   # Row 1: X___
-    .word 1, 1, 1, 0, 0, 0, 0   # Row 2: _XX_
-    .word 0, 0, 1, 0, 0, 0, 0   # Row 3: ___X
-    .word 1, 1, 1, 0, 0, 0, 0   # Row 4: XXX_
+    .word 1, 1, 1, 0, 0, 0, 0, 0, 0
+    .word 1, 0, 0, 0, 0, 0, 0, 0, 0
+    .word 1, 1, 1, 0, 0, 0, 0, 0, 0
+    .word 0, 0, 1, 0, 0, 0, 0, 0, 0
+    .word 1, 1, 1, 0, 0, 0, 0, 0, 0
+    .word 0, 0, 0, 0, 0, 0, 0, 0, 0
+    .word 0, 0, 0, 0, 0, 0, 0, 0, 0
 
 PreviewNext:
-    .word 1, 1, 1, 1, 1, 1, 1   # Row 0: _XXX
-    .word 1, 1, 1, 1, 1, 1, 1   # Row 1: X___
-    .word 1, 1, 1, 1, 1, 1, 1   # Row 2: _XX_
-    .word 1, 1, 1, 1, 1, 1, 1   # Row 3: ___X
-    .word 1, 1, 1, 1, 1, 1, 1   # Row 4: XXX_
+    .word 1, 1, 1, 1, 1, 1, 1, 0, 0
+    .word 1, 1, 1, 1, 1, 1, 1, 0, 0
+    .word 1, 1, 1, 1, 1, 1, 1, 0, 0
+    .word 1, 1, 1, 1, 1, 1, 1, 0, 0
+    .word 1, 1, 1, 1, 1, 1, 1, 0, 0
+    .word 0, 0, 0, 0, 0, 0, 0, 0, 0
+    .word 0, 0, 0, 0, 0, 0, 0, 0, 0
+
 
 HoldNext:
-    .word 0, 1, 1, 1, 1, 1, 0   # Row 0: _XXX
-    .word 1, 1, 1, 1, 1, 1, 1   # Row 1: X___
-    .word 1, 1, 1, 1, 1, 1, 1   # Row 2: _XX_
-    .word 1, 1, 1, 1, 1, 1, 1   # Row 3: ___X
-    .word 0, 1, 1, 1, 1, 1, 0   # Row 4: XXX_
+    .word 0, 1, 1, 1, 1, 1, 0, 0, 0
+    .word 1, 1, 1, 1, 1, 1, 1, 0, 0
+    .word 1, 1, 1, 1, 1, 1, 1, 0, 0
+    .word 1, 1, 1, 1, 1, 1, 1, 0, 0
+    .word 0, 1, 1, 1, 1, 1, 0, 0, 0
+    .word 0, 0, 0, 0, 0, 0, 0, 0, 0
+    .word 0, 0, 0, 0, 0, 0, 0, 0, 0
+
+ScoreBoard:
+    .word 1, 1, 1, 1, 1, 1, 1, 1, 1
+    .word 1, 1, 1, 1, 1, 1, 1, 1, 1
+    .word 1, 1, 1, 1, 1, 1, 1, 1, 1
+    .word 1, 1, 1, 1, 1, 1, 1, 1, 1
+    .word 1, 1, 1, 1, 1, 1, 1, 1, 1
+    .word 1, 1, 1, 1, 1, 1, 1, 1, 1
+    .word 1, 1, 1, 1, 1, 1, 1, 1, 1
 
 held_piece:      .word 0 # current held
 hold_used:       .word 0 # 1 if already held per spawn
 held_color: .word 0
+
+score: .word 0
 
 .text
 .globl main
@@ -258,7 +281,7 @@ main:
     lw $s7, 0($s7)       # now $s7 = 0xffff0000
 
     # setup and draw static UI
-    li $a0, 1 # init game takes a boolean
+    li $a1, 1 # init game takes a boolean
     jal init_game
 
     # re-load keyboard addr just in case
@@ -339,8 +362,8 @@ game_loop:
     li $t2, 115
     beq $t1, $t2, move_down
 
-    # 'e' = hold
-    li $t2, 101
+    # 'c' = hold
+    li $t2, 99
     beq $t1, $t2, try_hold
 
     # 'q' = quit
@@ -446,7 +469,11 @@ hold_empty:
     sw $t3, held_color
 
     # spawn new piece (this will reset orientation, position)
-    jal spawn_piece_returning # scuffed solution, ik
+    # basically, we need to return after spawning the piece here, otherwise it'll call game_loop
+    # and we won't be able to store hold_used nor draw the preview
+    
+    li $a0, 1
+    jal spawn_piece # scuffed solution, but we call with a0 == 1 to return it
 
     # draw held piece after first hold
     la $a0, HoldNext
@@ -468,14 +495,14 @@ hold_done:
     li $t0, 1
     sw $t0, hold_used
 
-    # Clear the hold box background
+    # clear the hold preview
     la $a0, HoldNext
     li $a1, 9
     li $a2, 21
     li $a3, 0x171717
     jal draw_ui_element
 
-    # Draw held piece in hold box
+    # draw held piece in preview
     lw $t0, held_piece           # pointer to rotation array
     lw $a0, 0($t0)               # pointer to rotation 0
     lw $a1, held_color           # color
@@ -546,12 +573,19 @@ move_down_lock:
 
     # jal print_board
 
-    jal clear_lines
-
+    jal clear_lines # this returns 1 in v0 if lines were cleared
+    beqz $v0, unchanged_score # no lines
+    jal update_score
+    
+unchanged_score:
+    # spawn_piece takes 0 if not the first_time (ie no returning)
+    li $a0, 0 # spawn_piece takes 0 if not first time
     beqz $v0, spawn_piece # no clearing happened
+    
     # else redraw board
     li $a1, 0 # init_game takes 0 if not first time
     jal init_game # this will clear the board (not ideal b/c it redraws red, but wtv)
+    
     # now we redraw the board
     # jal print_board
     jal redraw_board
@@ -559,6 +593,12 @@ move_down_lock:
     # keep creating pieces next
 
 spawn_piece:
+    # for initial holds we need it to return, so we use the flags below
+    addi $sp, $sp, -4 # used temporarily, push ra
+    sw $ra, 0($sp)
+    addi $sp, $sp, -4 # used temporarily, push a0
+    sw $a0, 0($sp)
+    
     sw $zero, hold_used
     sw $zero, active_orientation
 
@@ -624,6 +664,19 @@ generate_new_next:
     jal can_place_piece # if v0 == 0, game over
     beqz $v0, quit
 
+    # FINAL DECISION (this is just an edge case for initial hold)
+    lw $a0, 0($sp) # pop $a0
+    li $t0, 1
+    beq $a0, $t0, do_return # return if a0 == 1 (ie if this came after a hold)
+
+    lw $ra, 4($sp)
+    addi $sp, $sp, 8 # pop
+    j game_loop # otherwise game_loop like normal
+
+do_return:
+    lw $ra, 4($sp)
+    addi $sp, $sp, 8 # pop
+    jr $ra # return
     j game_loop
 
 ##############################################################################
@@ -702,8 +755,8 @@ continue_clear:
     ble $t6, $t7, clear_loop # if not done clearing the area
 
     # we will need some break here (to avoid overwriting UI chunks)
-    bnez $a0, initial_draw # if a0 == 1, not first time
-    jr $ra
+    bnez $a1, initial_draw # if a1 == 0, not first time
+    j next_row
 
 initial_draw:
     # UI area -purple (cols 19 to 29)
@@ -731,6 +784,9 @@ full_row_loop:
 next_row:
     addi $t2, $t2, 1
     blt $t2, $t3, draw_loop
+
+    bnez $a1, draw_static_ui # if a1 == 0, not first time
+    jr $ra # so, we can just skip drawing the UI
 
 draw_static_ui:
     addi $sp, $sp, -4 # push ra onto the stack
@@ -765,6 +821,12 @@ draw_static_ui:
     li $a2, 21          # start col (x)
     li $a3, 0x171717
     jal draw_ui_element
+
+    la $a0, ScoreBoard
+    li $a1, 22         # start row (y)
+    li $a2, 20          # start col (x)
+    li $a3, 0x171717
+    jal draw_ui_element
     
     lw $ra, 0($sp) # pop ra
     addi $sp, $sp, 4
@@ -778,16 +840,16 @@ draw_static_ui:
 draw_ui_element:
     lw $t0, ADDR_DSPL       # framebuffer base
     move $s0, $a0           # bitmap base addr
-    li $t1, 5               # rows
-    li $t2, 7               # cols
+    li $t1, 7               # rows
+    li $t2, 9               # cols
     li $t3, 0               # row index
 
 pts_row_loop:
     li $t4, 0               # col index
 
 pts_col_loop:
-    # offset = row*28 + col*4 bytes
-    li $t9, 28 # 28 because 7 cols * 4 bytes
+    # calculate offset
+    sll $t9, $t2, 2 # t9 = col * 4 bytes
     mul $t5, $t3, $t9
     addu $t6, $s0, $t5      # bitmap base + row offset
     sll $t7, $t4, 2         # col * 4
@@ -814,9 +876,6 @@ pts_skip_pixel:
     blt $t3, $t1, pts_row_loop
 
     jr $ra
-
-
-
 
 
 
@@ -1157,9 +1216,14 @@ check_col_for_highlight:
     addi $t1, $t1, 1
     ble $t1, 14, check_col_for_highlight # repeat
 
-    # full row found, highlight it white
+    # full row found, highlight row white and increment score
     li $v0, 1 # mark true
     li $t1, 14
+
+    lw  $t7, score # load score, increment, save
+    addi $t7, $t7, 1
+    sw  $t7, score
+
 
 highlight_row_loop:
     addi $t7, $t0, 2 # row' = (row + 2) * 128
@@ -1190,7 +1254,7 @@ not_full_row_highlight:
 
 delay_start:
     li $v0, 32 # syscall for sleep
-    li $a0, 200 # sleep for 200 milliseconds
+    li $a0, 150 # sleep for 200 milliseconds
     syscall
 
     li $v0, 0 # for return value
@@ -1218,8 +1282,8 @@ check_col_for_clear:
 
     # row is full, clear it and mark cleared in v0
     li $v0, 1
-
     li $t1, 0
+
 clear_row_loop:
     mul $t4, $t0, $t3
     add $t4, $t4, $t1
@@ -1344,78 +1408,33 @@ pb_col_loop:
 
     jr $ra
 
-# basically, in the initial hold we have to return after spawning a piece
-# this is to populate the hold preview and to set the hold boolean to true
-# for some reason trying to change spawn_piece to accept a flag causing returns is breaking everything
-spawn_piece_returning:
-    addi $sp, $sp, -4 # push ra onto the stack
+update_score:
+    addi $sp, $sp, -4 # push ra
     sw $ra, 0($sp)
     
-    sw $zero, hold_used
-    sw $zero, active_orientation
-
-    # use the next piece index as current piece (initialized to 0) -fix later
-    lw $t0, next_piece_index # $t0 = piece index
-    sll $t7, $t0, 2 # offset = index * 4 bytes
-
-    la $t8, PieceColors # get corresponding colour
-    add $t9, $t8, $t7
-    lw $t1, 0($t9)
-    sw $t1, active_color
-
-    la $t6, AllPieces # get corresponding piece
-    add $t6, $t6, $t7
-    lw $t7, 0($t6)
-    sw $t7, active_rotation_block # which is held_piece on first hold
-
-    lw $t2, 0($t7)
-    sw $t2, active_piece
-
-    # where to place the current piece
-    li $t3, 2
-    sw $t3, active_row
-    li $t4, 8
-    sw $t4, active_col
-
-generate_new_next_returning:    
-    # first, reset the preview box
-    la $a0, PreviewNext
-    li $a1, 3          # start row (y)
-    li $a2, 21          # start col (x)
+    # clear grid
+    la $a0, ScoreBoard
+    li $a1, 22         # start row (y)
+    li $a2, 20          # start col (x)
     li $a3, 0x171717
     jal draw_ui_element
+
+    la $a0, LetterP
+    li $a1, 23         # start row (y)
+    li $a2, 22          # start col (x)
+    li $a3, 0xab89ce
+    jal draw_ui_element
     
-    li $a0, 0 # random
-    li $a1, 7
-    li $v0, 42
+    #update score somehow
+    lw $a0, score # print score for now
+    li $v0, 1
     syscall
-    # li $a0, 0       # force index to 0 (I piece) - temp
 
-    sw $a0, next_piece_index # store new next piece index
-    
-    # draw next piece
-    sll $t5, $a0, 2
-    la $t6, AllPieces
-    add $t6, $t6, $t5
-    lw $t7, 0($t6) # pointer to rotation array
-    lw $a0, 0($t7) # next piece = first rotation
-    la $t8, PieceColors
+    li $v0, 11 # newline
+    li $a0, 10
+    syscall
 
-    # now, we can draw the next piece in the preview
-    add $t9, $t8, $t5
-    lw $a1, 0($t9) # colour
-    li $a2, 4 # preview row
-    li $a3, 23 # preview col
-    jal draw_piece
-
-    # check for game over using can_place_piece
-    lw $a0, active_piece
-    lw $a1, active_row
-    lw $a2, active_col
-    
-    jal can_place_piece # if v0 == 0, game over
-    beqz $v0, quit
-
-    lw $ra, 0($sp)
+    lw $ra, 0($sp) # pop ra
     addi $sp, $sp, 4
+    
     jr $ra
