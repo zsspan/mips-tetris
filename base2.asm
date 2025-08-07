@@ -7,32 +7,62 @@
 # - Display width in pixels: 256 (update this as needed)
 # - Display height in pixels: 256 (update this as needed)
 # - Base Address for Display: 0x10008000 ($gp)
-# 
-# Currently has rotation, movement, collision detection, and central loop and piece locking.
-# More info will be written in final submission
+#
+# Which milestones have been reached in this submission?
+# (See the assignment handout for descriptions of the milestones)
+# - Milestone 5
+#
+# Which approved features have been implemented?
+# (See the assignment handout for the list of features)
+# Easy Features:
+# 1. Implement gravity, so that each second that passes will automatically move the tetromino
+# 2. Have the speed of gravity increase gradually over time, or after the player completes a certain number of rows
+# 3. Make sure that each tetromino type is a different colour
+# 4. Have a panel on the side that displays a preview of the next tetromino that will appear
+# 5. Implement the "save" feature, which allows you to hold a piece and later retrieve it
+
+# Hard Features:
+# 1. Track and display the player’s score in pixels, which is based on how many lines have been completed so far
+# 3. Implement the full set of tetrominoes
+# 4. Add some animation to lines (here they flash white) when they are completed (e.g. make them go poof)
+
+# How to play:
+# Use WASD to rotate, move left, move right and move down
+# Use C to "hold/save" a piece, then you can press C again on another spawn to save the current piece and retieve the stored one
+# Use Q to quit the game
+# Fill in the board by completing rows of pieces, after clearing a line/multiple lines they will flash white and dissapear
+# The score goes up by 1 for each line you clear, and the speed at which pieces fall increases as well
+# The pieces generated are randomized (except for the initial one) - this uses a seed variable in .data
+#
+# Link to video demonstration for final submission:
+# - ...
+#
+# Are you OK with us sharing the video with people outside course staff?
+# - yes
 #
 # Any additional information that the TA needs to know:
-# - (write here, if any)
-#
+# - N/A
 #####################################################################
+
 .data
 ADDR_DSPL: .word 0x10008000  # base address for framebuffer
-Board: .space 1680   # 28 rows * 15 columns * 4 bytes = 2048 bytes
+Board: .space 1680 # 28 rows * 15 columns * 4 bytes = 1680 bytes for the board
 ADDR_KBRD: .word 0xffff0000
 seed: .word 43829 # determines random seed
 
+# active statuses listed below
 active_piece: .word 0
 active_row: .word 0
 active_col: .word 5
-active_color: .word 0
+active_colour: .word 0
 active_orientation: .word 0
-active_rotation_block: .word 0
+active_rotation_block: .word 0 # just a pointer in the big pieces struct
 
 next_piece_index: .word 0
 
 # parallel list of pieces and colours
 AllPieces: .word I_piece_rotations, L_piece_rotations, T_piece_rotations, O_piece_rotations, S_piece_rotations, Z_piece_rotations, J_piece_rotations
-PieceColors: .word 0x9999ff, 0xe27102, 0xae2fcb, 0xebf01d, 0x50d3ac, 0xaa2822, 0x33a6eb
+Piececolours: .word 0x9999ff, 0xe27102, 0xae2fcb, 0xebf01d, 0x50d3ac, 0xaa2822, 0x33a6eb
 
 # piece info
 I_piece_rotations: .word I_piece, I_piece_90, I_piece_180, I_piece_270
@@ -268,12 +298,14 @@ ScoreBoard:
     .word 1, 1, 1, 1, 1, 1, 1, 1, 1
     .word 1, 1, 1, 1, 1, 1, 1, 1, 1
 
-held_piece:      .word 0 # current held
-hold_used:       .word 0 # 1 if already held per spawn
-held_color: .word 0
+held_piece: .word 0 # current held
+hold_used: .word 0 # 1 if already held during current spawn cycle
+held_colour: .word 0
 
 score: .word 0
-gravity: .word 75000 # holds the threshold
+gravity_initial: .word 75000 # the initial gravity
+gravity: .word 75000 # the current threshold / speed
+gravity_min: .word 5000
 
 DigitTable:
     .word Digit0
@@ -381,39 +413,35 @@ Digit9:
 .globl main
 main:
     la $s7, ADDR_KBRD
-    lw $s7, 0($s7)       # now $s7 = 0xffff0000
+    lw $s7, 0($s7) # now $s7 = 0xffff0000
 
     # setup and draw static UI
     li $a1, 1 # init game takes a boolean
     jal init_game
 
-    # re-load keyboard addr just in case
-    la $s7, ADDR_KBRD
-    lw $s7, 0($s7)
-
     # idk this apparently does RNG nonsense
-    li $a0, 0      # generator ID
-    lw $a1, seed  # seed
-    li $v0, 40     # syscall 40
+    li $a0, 0 # generator ID
+    lw $a1, seed # seed
+    li $v0, 40
     syscall
     
     sw $zero, active_orientation # init to 0
 
-    # random nonsense
+    # random nonsense to get the current piece
     la $t0, I_piece_rotations
     sw $t0, active_rotation_block  # store pointer to it
 
-    # set active piece to L_piece (using pointer nonsense)
+    # set active piece to I_piece (using pointer nonsense) -- currently first piece is hardcoded
     lw $t1, 0($t0) # this is orientation 0 of I piece
     sw $t1, active_piece
 
-    # set active row, column and color
+    # set active row, column and colour
     li $t1, 2 # row = 0
     sw $t1, active_row
     li $t1, 8 # col = center
     sw $t1, active_col
     li $t1, 0x9999ff
-    sw $t1, active_color
+    sw $t1, active_colour
     
     # we also have to set the next piece
     li $a0, 0 # random
@@ -431,14 +459,14 @@ main:
 
     lw $a0, 0($t5) # first rotation of preview piece
 
-    la $t6, PieceColors
+    la $t6, Piececolours
     add $t6, $t6, $t3
-    lw $a1, 0($t6) # piece color
+    lw $a1, 0($t6) # piece colour
     
     li $a2, 4 # row
     li $a3, 23 # col in preview
 
-    # GRAVITY FEATYRES
+    # GRAVITY FEATURES
     li $s6, 0 # gravity counter (starts at 0, goes up to .gravity)
     lw $s5, gravity  # gravity threshold (we adjust this depending on the score)
 
@@ -481,13 +509,13 @@ skip_key:
     # increment gravity counter
     addi $s6, $s6, 1
     lw $s5, gravity
-    bge  $s6, $s5, gravity_fall
+    bge  $s6, $s5, do_gravity
 
     # 3. draw the screen
     jal start_drawing
     j game_loop
 
-gravity_fall: # once the counter reaches the threshold, we can force a 'move_down' and reset it
+do_gravity: # now that the counter reaches the threshold, we can force a 'move_down' and reset it
     li $s6, 0
     j move_down
 
@@ -496,25 +524,25 @@ quit:
     syscall
     
 try_rotate:
-    lw $t0, active_orientation        # current orientation
+    lw $t0, active_orientation # current orientation
     addi $t1, $t0, 1
-    andi $t1, $t1, 3                   # next orientation mod 4
+    andi $t1, $t1, 3 # next orientation mod 4
     move $s3, $t1 # save for now
     
-    lw $t2, active_rotation_block    # pointer to rotation block array
+    lw $t2, active_rotation_block # pointer to rotation block array
 
-    sll $t3, $t1, 2                  # offset = next_orientation * 4 bytes
-    addu $t3, $t3, $t2                # pointer to rotated piece pointer
+    sll $t3, $t1, 2 # offset = next_orientation * 4 bytes
+    addu $t3, $t3, $t2 # pointer to rotated piece pointer
 
-    lw $t4, 0($t3)                  # rotated piece pointer
+    lw $t4, 0($t3) # rotated piece pointer
     move $s4, $t4 # save for now
 
     lw $a1, active_row
     lw $a2, active_col
-    move $a0, $t4                     # rotated piece ptr
+    move $a0, $t4 # rotated piece ptr
 
     jal can_place_piece
-    beqz $v0, rotate_fail             # fail if can't place
+    beqz $v0, rotate_fail # fail if can't place
 
     # save old active_piece pointer before updating
     lw $t5, active_piece
@@ -537,7 +565,7 @@ rotate_fail:
 
 try_hold:
     lw $t0, hold_used
-    bnez $t0, game_loop   # if hold already used, ignore input
+    bnez $t0, game_loop # if hold already used, ignore input
 
     # clear current piece from board
     lw $a0, active_piece
@@ -546,7 +574,7 @@ try_hold:
     jal clear_piece
 
     lw $t1, held_piece
-    beqz $t1, hold_empty  # if no held piece, jump to hold_empty
+    beqz $t1, hold_empty # if no held piece, jump to hold_empty
 
     # swap active piece and held piece
     lw $t2, active_rotation_block
@@ -555,11 +583,11 @@ try_hold:
     sw $t1, active_rotation_block
     sw $t2, held_piece
 
-    # swap colors (if you track colors)
-    lw $t3, active_color
-    lw $t4, held_color
-    sw $t4, active_color
-    sw $t3, held_color
+    # swap colours
+    lw $t3, active_colour
+    lw $t4, held_colour
+    sw $t4, active_colour
+    sw $t3, held_colour
 
     # reset orientation and position
     sw $zero, active_orientation
@@ -580,27 +608,27 @@ hold_empty:
     lw $t9, active_rotation_block
     sw $t9, held_piece
 
-    lw $t3, active_color
-    sw $t3, held_color
+    lw $t3, active_colour
+    sw $t3, held_colour
 
-    # spawn new piece (this will reset orientation, position)
+    # spawn new piece (this is used to reset orientation, position, etc)
     # basically, we need to return after spawning the piece here, otherwise it'll call game_loop
     # and we won't be able to store hold_used nor draw the preview
     
-    li $a0, 1
-    jal spawn_piece # scuffed solution, but we call with a0 == 1 to return it
+    li $a0, 1 # scuffed solution, but we call with spawn_piece with a0 == 1 to force a return
+    jal spawn_piece
 
     # draw held piece after first hold
     la $a0, HoldNext
     li $a1, 9         # row
     li $a2, 21        # col
-    li $a3, 0x171717  # bg color
+    li $a3, 0x171717  # bg colour
     jal draw_ui_element
 
     # load held piece pointer
     lw $t0, held_piece       # $t0 = pointer to rotation array
     lw $a0, 0($t0)           # $a0 = first rotation
-    lw $a1, held_color
+    lw $a1, held_colour
     li $a2, 10
     li $a3, 22
     jal draw_piece
@@ -618,12 +646,12 @@ hold_done:
     jal draw_ui_element
 
     # draw held piece in preview
-    lw $t0, held_piece           # pointer to rotation array
-    lw $a0, 0($t0)               # pointer to rotation 0
-    lw $a1, held_color           # color
+    lw $t0, held_piece        # pointer to rotation array
+    lw $a0, 0($t0)            # pointer to rotation 0
+    lw $a1, held_colour        # colour
 
-    li $a2, 10                   # row inside hold box
-    li $a3, 22                   # col inside hold box
+    li $a2, 10 # row to draw piece in preview
+    li $a3, 22 # col to draw piece in preview
     jal draw_piece
 
     j game_loop
@@ -705,9 +733,11 @@ unchanged_score:
     # jal print_board
     jal redraw_board
 
-    # keep creating pieces next
+    # keep creating pieces next (go to spawn_piece)
 
-spawn_piece:
+### when a0 == 0, this isnt used as a function (just branches back to game_loop)
+### but when a0 == 1, it returns with no value (needed for holding edge case)
+spawn_piece: 
     # for initial holds we need it to return, so we use the flags below
     addi $sp, $sp, -4 # used temporarily, push ra
     sw $ra, 0($sp)
@@ -721,10 +751,10 @@ spawn_piece:
     lw $t0, next_piece_index # $t0 = piece index
     sll $t7, $t0, 2 # offset = index * 4 bytes
 
-    la $t8, PieceColors # get corresponding colour
+    la $t8, Piececolours # get corresponding colour
     add $t9, $t8, $t7
     lw $t1, 0($t9)
-    sw $t1, active_color
+    sw $t1, active_colour
 
     la $t6, AllPieces # get corresponding piece
     add $t6, $t6, $t7
@@ -744,7 +774,7 @@ generate_new_next:
     # first, reset the preview box
     la $a0, PreviewNext
     li $a1, 3          # start row (y)
-    li $a2, 21          # start col (x)
+    li $a2, 21         # start col (x)
     li $a3, 0x171717
     jal draw_ui_element
     
@@ -762,7 +792,7 @@ generate_new_next:
     add $t6, $t6, $t5
     lw $t7, 0($t6) # pointer to rotation array
     lw $a0, 0($t7) # next piece = first rotation
-    la $t8, PieceColors
+    la $t8, Piececolours
 
     # now, we can draw the next piece in the preview
     add $t9, $t8, $t5
@@ -779,13 +809,11 @@ generate_new_next:
     jal can_place_piece # if v0 == 0, game over
     beqz $v0, quit
 
-    # FINAL DECISION (this is just an edge case for initial hold)
+    # FINAL DECISION - ie whether we want to return or gao back to game_loop
+    # (this is just an edge case for initial hold, since it needs an explicit return)
     lw $a0, 0($sp) # pop $a0
     li $t0, 1
     beq $a0, $t0, do_return # return if a0 == 1 (ie if this came after a hold)
-
-    li $s0, 0         # gravity counter
-    li $s1, 30        # gravity threshold (tune this for speed)
 
     lw $ra, 4($sp)
     addi $sp, $sp, 8 # pop
@@ -798,11 +826,13 @@ do_return:
     j game_loop
 
 ##############################################################################
-# we will pass a1 = 0 here. on start it will do everything, later it stops early
-# a1 == 1 --> first time
+# fxn init_game(a1): 
+# we pass a1 = 0 here normally (early stop and doesnt redraw UI)
+# a1 == 1 --> first time initializing (it will do everything)
+##############################################################################
 init_game:
     lw $t0, ADDR_DSPL        # $t0 = base framebuffer address
-    li $t1, 0xa40c50         # red color
+    li $t1, 0xa40c50         # red colour
     li $s2, 0xa20aaa # purple for UI panel
     li $s4, 0x262626 # gray for checkboard
 
@@ -815,7 +845,7 @@ draw_loop:
     mul $t4, $t2, 128        # offset = row * 128 bytes (32 units * 4 bytes)
     add $t5, $t0, $t4        # $t5 = start of current row
 
-    # First, second, second-last, last row: draw full red
+    # first, second, second-last, last row: draw full red
     beq $t2, $zero, draw_full_row
     li $t6, 1
     beq $t2, $t6, draw_full_row
@@ -824,12 +854,12 @@ draw_loop:
     li $t6, 31
     beq $t2, $t6, draw_full_row
 
-    # Draw left border (col 0 + 1)
+    # draw left border (col 0 + 1)
     sw $t1, 0($t5)
     addi $t8, $t5, 4       # col 1 = $t5 + 4
     sw $t1, 0($t8)
 
-    # Draw right border (col 17 + 18)
+    # draw right border (col 17 + 18)
     li $t6, 17
     mul $t7, $t6, 4
     add $t8, $t5, $t7
@@ -837,7 +867,7 @@ draw_loop:
     add $t8, $t8, 4
     sw $t1, 0($t8)
 
-    # also do 30 + 31
+    # also do columns 30 + 31
     li $t6, 30
     mul $t7, $t6, 4
     add $t8, $t5, $t7
@@ -845,12 +875,12 @@ draw_loop:
     add $t8, $t8, 4
     sw $t1, 0($t8)
     
-    # Clear play area (cols 2 to 16)
+    # clear play area (cols 2 to 16)
     li $t6, 2        # start col
     li $t7, 16       # end col (inclusive)
 
 clear_loop:
-    #t2, t6 is row (index) / column (index)
+    # t2, t6 is row (index) / column (index)
     mul $t9, $t6, 4  # column index * 4
     addu $t4, $t5, $t9 # t4 = current_row + column offset
 
@@ -891,7 +921,7 @@ ui_loop:
     j next_row
 
 draw_full_row:
-    li $t6, 32               # total units in a row
+    li $t6, 32       # total units in a row
     move $t4, $t5    # t4 = base address
 full_row_loop:
     sw $t1, 0($t4)
@@ -913,7 +943,7 @@ draw_static_ui:
     la $a0, LetterP
     li $a1, 16          # start row (y)
     li $a2, 20          # start col (x)
-    li $a3, 0xffffff    # white color
+    li $a3, 0xffffff    # white colour
     jal draw_ui_element
 
     la $a0, LetterT
@@ -984,7 +1014,7 @@ pts_col_loop:
     addu $t9, $t9, $t0      # add framebuffer base
     addu $t9, $t9, $t7      # add col offset
 
-    sw $a3, 0($t9)          # draw pixel with color
+    sw $a3, 0($t9)          # draw pixel with colour
 
 pts_skip_pixel:
     addi $t4, $t4, 1
@@ -996,10 +1026,6 @@ pts_skip_pixel:
     jr $ra
 
 
-
-
-
-
 ##############################################################################
 start_drawing: # this is basically a do while loop
     addi $sp, $sp, -4 # push
@@ -1007,7 +1033,7 @@ start_drawing: # this is basically a do while loop
         
     # load active piece and draw it
     lw $a0, active_piece
-    lw $a1, active_color
+    lw $a1, active_colour
     lw $a2, active_row
     lw $a3, active_col
     jal draw_piece
@@ -1019,13 +1045,13 @@ start_drawing: # this is basically a do while loop
     jr $ra
 
 
-##############################################################################
+##############################################################
 # fxn draw_piece(a0, a1, a2, a3): draws a piece
 # a2, a3 are row and column (indices), a0/a1 is piece/colour
-##################################################333
+##############################################################
 draw_piece:
     move $t0, $a0        # piece pointer
-    move $t1, $a1        # color
+    move $t1, $a1        # colour
     move $t2, $a2        # row pos
     move $t3, $a3        # col pos
 
@@ -1050,7 +1076,7 @@ draw_col_loop:
     addu $t9, $s1, $t9
     addu $t9, $t9, $s0
 
-    sw $t1, 0($t9)        # write pixel color
+    sw $t1, 0($t9)        # write pixel colour
 
 skip_pixel:
     addi $t5, $t5, 1
@@ -1063,6 +1089,10 @@ skip_pixel:
 
     jr $ra
 
+##############################################################
+# fxn clear_piece(a0, a1, a2): clears a piece
+# args: a0, a1, a2 = piece, row, column
+##############################################################
 clear_piece:
     move $t0, $a0        # piece pointer
     move $t2, $a1        # row pos
@@ -1116,6 +1146,7 @@ cp_skip_pixel:
 ##############################################################################
 # fxn lock_piece(a0, a2, a3): commits a piece to board (no return), assumes board has only playable area
 # a2, a3 are row/col, a0 is piece
+##############################################################################
 lock_piece:
     subi $a2, $a2, 2 #checktest
     subi $a3, $a3, 2
@@ -1141,7 +1172,7 @@ lp_col_loop:
 
     la  $t9, Board
     add $t9, $t9, $t8
-    lw $s0, active_color #trackme
+    lw $s0, active_colour #trackme
     sw $s0, 0($t9) # save to the board, but we should store colours not piece values
     # now we store colour
 
@@ -1159,6 +1190,7 @@ lp_skip:
 ##############################################################################
 # fxn can_move_down(): returns boolean in v0
 # uses stack: returns 1 in $v0 if move by (d_row=a0, d_col=$a1) is legal
+##############################################################################
 can_move:
     addi $sp, $sp, -4 # push ra
     sw $ra, 0($sp)     # push ra
@@ -1175,9 +1207,10 @@ can_move:
     li $t4, 0                # i = 0
 row_loop:
     li $t5, 0                # j = 0
+    
 col_loop:
     sll $t6, $t4, 2 # t6 = t4 * 4
-    add $t6, $t6, $t5         # offset in 4x4 grid = i*4 + j
+    add $t6, $t6, $t5        # offset in 4x4 grid = i*4 + j
     add $t7, $s0, $t6
     lb $t8, 0($t7)           # piece[i][j]
 
@@ -1210,13 +1243,13 @@ col_loop:
     # check collision in Board[abs_row][abs_col]
     li $t7, 15
     mul $t7, $t9, $t7         # t7 = abs_row * 15
-    add $t7, $t7, $t6         # + abs_col
-    sll $t7, $t7, 2           # * 4 (word address)
+    add $t7, $t7, $t6         # t7 = t7 + abs_col
+    sll $t7, $t7, 2           # t7 = t7 * 4 (word address)
 
     la $t8, Board
     add $t8, $t8, $t7
     lw $t9, 0($t8)
-    bnez $t9, fail_move # if board[i][j] == 1, its alr occupied
+    bnez $t9, fail_move # if board[i][j] == 1, its already occupied
 
 skip_cell:
     addi  $t5, $t5, 1
@@ -1238,8 +1271,9 @@ done_move:
 
 ##############################################################################
 # fxn can_rotate(): returns boolean in v0
-# uses stack: returns 1 in $v0 if a piece at (active_row, active_col)is legal
+# uses stack: returns 1 in $v0 if a piece at (active_row, active_col) is legal
 # should refactor but to can_move, but whatever
+##############################################################################
 can_place_piece:
     addi $sp, $sp, -4 # push ra
     sw $ra, 0($sp)
@@ -1313,6 +1347,7 @@ done_cp:
 # fxn clear_lines(): no args, checks for cleared lines
 # returns 1 in v0 if lines were cleared
 # uses a two pass approach, first iteration highlights, second shifts boar
+####################################################
 clear_lines:
     li $v0, 0 # no lines cleared yet
     li $t0, 27 # start from bottom row
@@ -1345,7 +1380,6 @@ check_col_for_highlight:
     addi $t7, $t7, 1
     sw  $t7, score
 
-
 highlight_row_loop:
     addi $t7, $t0, 2 # row' = (row + 2) * 128
     li $t9, 128
@@ -1359,7 +1393,7 @@ highlight_row_loop:
     add $s0, $s0, $t7
     add $s0, $s0, $t8
 
-    li $t9, 0xFFFFFF # white color
+    li $t9, 0xFFFFFF # white colour
     sw $t9, 0($s0)
 
     addi $t1, $t1, -1 # iterate back to fill row
@@ -1454,6 +1488,7 @@ not_full_row_clear:
 
 #########################################################################
 # fxn redraw_board(): takes no params, returns void
+# iterates over the board and redraws it after a line clear
 #########################################################################
 redraw_board:
     lw $t0, ADDR_DSPL        # base framebuffer address → $t0
@@ -1461,17 +1496,17 @@ redraw_board:
 rb_row_loop:
     li $t2, 0                # col index (0–15)
 rb_col_loop:
-    # Get color = Board[row][col]
+    # get colour = Board[row][col]
     mul $t3, $t1, 15         # row * 15
     add $t3, $t3, $t2        # + col
     sll $t3, $t3, 2          # *4 (word offset)
     la $t4, Board
     add $t4, $t4, $t3
-    lw $t5, 0($t4)           # $t5 = color
+    lw $t5, 0($t4)           # $t5 = colour
 
-    beqz $t5, rb_skip_cell      # skip if color == 0, need to adjust later
+    beqz $t5, rb_skip_cell   # skip if colour == 0, need to adjust later
 
-    # Draw to screen at row+2, col+2
+    # draw to screen at row+2, col+2 (because of offset)
     addi $t6, $t1, 2         # row + 2
     addi $t7, $t2, 2         # col + 2
     mul $t8, $t6, 128        # (row + 2) * 128
@@ -1491,13 +1526,14 @@ rb_skip_cell:
 
     jr $ra
 
-########### helper
+########### helper (/debugger) to print the board
+#######################################################
 print_board:
     li $t0, 0          # row index = 0
 pb_row_loop:
     li $t1, 0          # col index = 0
 pb_col_loop:
-    # Calculate offset: (row * 15 + col) * 4
+    # calculate offset: (row * 15 + col) * 4
     mul $t2, $t0, 15
     add $t2, $t2, $t1
     sll $t2, $t2, 2
@@ -1506,21 +1542,19 @@ pb_col_loop:
     add $t3, $t3, $t2
     lw $a0, 0($t3)
 
-    li $v0, 1          # syscall 1: print int
+    li $v0, 1 # syscall 1 to print int
     syscall
 
-    # print space
-    li $a0, 32         # ASCII ' '
-    li $v0, 11         # syscall 11: print char
+    li $a0, 32
+    li $v0, 11 # syscall 11 and print ' '
     syscall
 
     addi $t1, $t1, 1
     li $t4, 15
     blt $t1, $t4, pb_col_loop
 
-    # print newline after each row
-    li $a0, 10         # ASCII newline
-    li $v0, 11
+    li $a0, 10
+    li $v0, 11 # syscall 11 and print newline
     syscall
 
     addi $t0, $t0, 1
@@ -1546,17 +1580,17 @@ update_score:
     lw $t0, score # use score = 432 as example
 
     # UPDATE GRAVITY HERE
-    # gravity threshold = max(75000 - (score * 1000), 5000)
+    # gravity threshold = max(gravity_initial - (score * 1000), gravity_min)
     
     li $t9, 1000 # decrement
     mul $t8, $t0, $t9 # t8 = score * 1000
 
-    li $t7, 75000
-    sub $t6, $t7, $t8 # t6 = 75000 - score * 1000
+    lw $t7, gravity_initial
+    sub $t6, $t7, $t8 # t6 = gravity_initial - score * 1000
 
-    li $t5, 5000 # we let 5000 be the fastest / minimum threshold
+    lw $t5, gravity_min # we let gravity_min be the fastest / minimum threshold
     bge $t6, $t5, decrement_gravity
-    move $t6, $t5 # else we make t6 = 5000
+    move $t6, $t5 # else we make t6 = gravity_min
 
 decrement_gravity:
     la $t4, gravity
@@ -1578,22 +1612,22 @@ decrement_gravity:
     mul $t6, $t5, $t1 # 32 - 30 = 2
     sub $t7, $t4, $t6 # ones digit
 
-    # Load pointer to hundreds digit bitmap
+    # load pointer to hundreds digit UI
     sll $t8, $t2, 2       # digit * 4 bytes (word offset)
     addu $s1, $s0, $t8
     lw $s1, 0($s1)        # $s1 = hundreds digit bitmap address
 
-    # Load pointer to tens digit bitmap
+    # load pointer to tens digit UI
     sll $t8, $t5, 2
     addu $s2, $s0, $t8
     lw $s2, 0($s2)        # $s2 = tens digit bitmap address
 
-    # Load pointer to ones digit bitmap
+    # load pointer to ones digit UI
     sll $t8, $t7, 2
     addu $s3, $s0, $t8
     lw $s3, 0($s3)        # $s3 = ones digit bitmap address
 
-    # Now t2, t5, t7 = hundreds, tens, ones
+    # now t2, t5, t7 = hundreds, tens, ones
     # s1, s2, s3 = addresses (s registers aren't used in draw_ui_element)
 
     # we can now display these
