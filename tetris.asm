@@ -23,8 +23,8 @@
 
 # Hard Features:
 # 1. Track and display the player’s score in pixels, which is based on how many lines have been completed so far
-# 3. Implement the full set of tetrominoes
-# 4. Add some animation to lines (here they flash white) when they are completed (e.g. make them go poof)
+# 2. Implement the full set of tetrominoes
+# 3. Add some animation to lines (here they flash white) when they are completed (e.g. make them go poof)
 
 # How to play:
 # Use WASD to rotate, move left, move right and move down
@@ -35,13 +35,16 @@
 # The pieces generated are randomized (except for the initial one) - this uses a seed variable in .data
 #
 # Link to video demonstration for final submission:
-# - ...
+# - https://www.youtube.com/watch?v=1i9ZrxbfWmI (YouTube Link)
+# - https://drive.google.com/file/d/120Oxj1Wbe3wARms-y6ppFI7cEPNXoiZ1/view?usp=drive_link (Backup Google Drive Link - might have to download first)
 #
 # Are you OK with us sharing the video with people outside course staff?
-# - yes
+# - Yes
 #
 # Any additional information that the TA needs to know:
-# - N/A
+# - This project works on both Saturn and Mars simulators, however:
+# - Gravity constants work differently on Mars/Saturn. On Mars, the gravity_initial and gravity_constants need to be lowered (around 7000), while on Saturn they need to be around 75000
+# - This is probably due to simulation speeds and how their looping works. Also, the random 'seeds' correspond to different mappings on the two simulators
 #####################################################################
 
 .data
@@ -241,7 +244,6 @@ O_piece_270:
     .byte 0,1,1,0
     .byte 0,0,0,0
 
-
 LetterP:
     .word 1, 1, 1, 0, 0, 0, 0, 0, 0
     .word 1, 0, 1, 0, 0, 0, 0, 0, 0
@@ -250,7 +252,6 @@ LetterP:
     .word 1, 0, 0, 0, 0, 0, 0, 0, 0
     .word 0, 0, 0, 0, 0, 0, 0, 0, 0
     .word 0, 0, 0, 0, 0, 0, 0, 0, 0
-
 
 LetterT:
     .word 1, 1, 1, 0, 0, 0, 0, 0, 0
@@ -278,7 +279,6 @@ PreviewNext:
     .word 1, 1, 1, 1, 1, 1, 1, 0, 0
     .word 0, 0, 0, 0, 0, 0, 0, 0, 0
     .word 0, 0, 0, 0, 0, 0, 0, 0, 0
-
 
 HoldNext:
     .word 0, 1, 1, 1, 1, 1, 0, 0, 0
