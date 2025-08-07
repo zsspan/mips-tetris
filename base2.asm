@@ -273,6 +273,7 @@ hold_used:       .word 0 # 1 if already held per spawn
 held_color: .word 0
 
 score: .word 0
+gravity: .word 75000 # holds the threshold
 
 DigitTable:
     .word Digit0
@@ -436,7 +437,11 @@ main:
     
     li $a2, 4 # row
     li $a3, 23 # col in preview
-    
+
+    # GRAVITY FEATYRES
+    li $s6, 0 # gravity counter (starts at 0, goes up to .gravity)
+    lw $s5, gravity  # gravity threshold (we adjust this depending on the score)
+
     jal draw_piece # we call with a0, a1, a2, a3
 
 
@@ -473,10 +478,18 @@ game_loop:
     beq $t1, $t2, quit
 
 skip_key:
-    # 3. draw the screen or update gameplay
-    jal start_drawing
+    # increment gravity counter
+    addi $s6, $s6, 1
+    lw $s5, gravity
+    bge  $s6, $s5, gravity_fall
 
+    # 3. draw the screen
+    jal start_drawing
     j game_loop
+
+gravity_fall: # once the counter reaches the threshold, we can force a 'move_down' and reset it
+    li $s6, 0
+    j move_down
 
 quit:
     li $v0, 10 # syscall to exit
@@ -771,6 +784,9 @@ generate_new_next:
     li $t0, 1
     beq $a0, $t0, do_return # return if a0 == 1 (ie if this came after a hold)
 
+    li $s0, 0         # gravity counter
+    li $s1, 30        # gravity threshold (tune this for speed)
+
     lw $ra, 4($sp)
     addi $sp, $sp, 8 # pop
     j game_loop # otherwise game_loop like normal
@@ -787,7 +803,7 @@ do_return:
 init_game:
     lw $t0, ADDR_DSPL        # $t0 = base framebuffer address
     li $t1, 0xa40c50         # red color
-    li $s5, 0xa20aaa
+    li $s2, 0xa20aaa # purple for UI panel
     li $s4, 0x262626 # gray for checkboard
 
     li $t2, 0           # row index
@@ -868,7 +884,7 @@ initial_draw:
 ui_loop:
     mul $t9, $t6, 4
     addu $t4, $t5, $t9
-    sw $s5, 0($t4) # mark it mystery colour for now comeback
+    sw $s2, 0($t4) # mark it mystery colour for now comeback
     addi $t6, $t6, 1
     ble $t6, $t7, ui_loop
 
@@ -1085,8 +1101,8 @@ cp_col_loop:
     j cp_skip_pixel
 
 cp_gray:
-    li $s5, 0x262626     # gray
-    sw $s5, 0($t9)
+    li $s1, 0x262626     # gray
+    sw $s1, 0($t9)
 
 cp_skip_pixel:
     addi $t5, $t5, 1
@@ -1529,6 +1545,25 @@ update_score:
 
     lw $t0, score # use score = 432 as example
 
+    # UPDATE GRAVITY HERE
+    # gravity threshold = max(75000 - (score * 1000), 5000)
+    
+    li $t9, 1000 # decrement
+    mul $t8, $t0, $t9 # t8 = score * 1000
+
+    li $t7, 75000
+    sub $t6, $t7, $t8 # t6 = 75000 - score * 1000
+
+    li $t5, 5000 # we let 5000 be the fastest / minimum threshold
+    bge $t6, $t5, decrement_gravity
+    move $t6, $t5 # else we make t6 = 5000
+
+decrement_gravity:
+    la $t4, gravity
+    sw $t6, 0($t4) # store updated threshold
+
+    # continue program
+
     li $t1, 100
     div $t0, $t1
     mflo $t2 # hundreds digit (432 // 100 = 4)
@@ -1563,6 +1598,7 @@ update_score:
 
     # we can now display these
     # draw_ui_element takes pointer, row, column, colour
+    
     move $a0, $s1
     li $a1, 23
     li $a2, 20
