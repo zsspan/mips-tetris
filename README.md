@@ -1,10 +1,13 @@
-# mips-tetris
+# 🧩mips-tetris
 
 Welcome to my implementation of the classic game Tetris, _but ... written entirely in **MIPS Assembly**!_
 
 This game was developed for CSCB58: Computer Organization, and highlits the transition from digital circuits and hardware into software language. You can find a brief design document titled ```MIPS Tetris - B58 Final Design Document.pdf``` with a concise overview. **View the video demonstration on [YouTube](https://youtu.be/1i9ZrxbfWmI)**.
 
-<img width="321" height="331" alt="mips" src="https://github.com/user-attachments/assets/a28ffde2-82a4-4b09-9915-83774e7d7730" /> <img height="350" alt="image" src="https://github.com/user-attachments/assets/632cbc13-b765-4963-81bf-4086fd54dfe2" />
+<div style="display: flex; justify-content: center; align-items: center; gap: 10px;">
+  <img width="321" height="331" alt="mips" src="https://github.com/user-attachments/assets/a28ffde2-82a4-4b09-9915-83774e7d7730" />
+  <img width="500" height="331" alt="image" src="https://github.com/user-attachments/assets/cceb9c00-9024-43c7-acdd-8c7783871557" />
+</div>
 
 
 
@@ -23,9 +26,7 @@ This game was developed for CSCB58: Computer Organization, and highlits the tran
 
 <img width="432" height="194" alt="image" src="https://github.com/user-attachments/assets/e23b93a7-700c-4c97-9834-05b9f12aeb74" />
 
-- Use ASD for left/down/right, W for rotate, and H to hold!
-
 ## Design Explanation (Simplified)
-- Uses IO polling to get keyboard inputs
+- Uses IO polling to get keyboard inputs (ASD for left/down/right, W for rotate, H to hold, Q to quit)
 - Forces a game loop consisting of drawing a piece to the framebuffer, handling collisions, locking pieces, and generating a new one
 - Handles scoring, gravity, RNG, and game ending
